@@ -1,0 +1,50 @@
+# Ambiente local: Postgres 16, migrações e API.
+#   docker compose up -d db migrate   # só o banco, para rodar a API com go run
+#   docker compose up --build         # tudo
+# O Postgres local não usa senha (trust) e só escuta em 127.0.0.1.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_DB: prumo
+      POSTGRES_HOST_AUTH_METHOD: trust
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./api/db/bootstrap.sql:/bootstrap.sql:ro
+      - ./api/db/docker-init.sh:/docker-entrypoint-initdb.d/00-bootstrap.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d prumo"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  migrate:
+    image: migrate/migrate:v4.18.3
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./api/db/migrations:/migrations:ro
+    command:
+      ["-path", "/migrations", "-database", "postgres://prumo_owner@db:5432/prumo?sslmode=disable", "up"]
+
+  api:
+    build: ./api
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      PRUMO_ENV: development
+      APP_ORIGIN: http://localhost:5173
+      DATABASE_URL: postgres://prumo_app@db:5432/prumo?sslmode=disable
+      AUTH_DATABASE_URL: postgres://prumo_auth@db:5432/prumo?sslmode=disable
+      REGISTRATION_MODE: invite
+      ALLOWED_EMAILS: ${ALLOWED_EMAILS:-}
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:
