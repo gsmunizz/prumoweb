@@ -49,6 +49,10 @@ func (s *Server) registerAuthRoutes(v1 *gin.RouterGroup) {
 	g.POST("/password/forgot", s.forgotPassword)
 	g.POST("/password/reset", s.resetPassword)
 	g.POST("/reauth", s.requireAuth(true), s.reauth)
+	// O Google chega por navegação (GET), sem os cabeçalhos do app: ficam fora do requireSameOrigin
+	// do grupo. O state assinado no cookie prumo_oidc faz o papel de anti-CSRF (AUT-21).
+	v1.GET("/auth/google/start", s.googleStart)
+	v1.GET("/auth/google/callback", s.googleCallback)
 
 	sessions := g.Group("/sessions", s.requireAuth(true))
 	sessions.GET("", s.listSessions)
@@ -59,6 +63,7 @@ func (s *Server) registerAuthRoutes(v1 *gin.RouterGroup) {
 	v1.PUT("/me/password", s.requireAuth(true), s.changePassword)
 	v1.POST("/me/email", s.requireAuth(true), s.requestEmailChange)
 	v1.POST("/me/email/confirm", s.confirmEmailChange)
+	v1.DELETE("/me/google", s.requireAuth(true), s.unlinkGoogle)
 }
 
 func clientInfo(c *gin.Context) auth.ClientInfo {
@@ -231,6 +236,11 @@ func (s *Server) me(c *gin.Context) {
 		s.fail(c, err)
 		return
 	}
+	linked, err := s.auth.GoogleLinked(ctx, uid)
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
 	var profile store.Profile
 	// O perfil é dado financeiro-adjacente: lido pelo papel prumo_app, sob RLS (PER-04).
 	err = database.WithUser(ctx, s.app, uid, func(tx pgx.Tx) error {
@@ -244,7 +254,7 @@ func (s *Server) me(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"id": user.ID, "email": user.Email, "email_verified": user.EmailVerifiedAt.Valid,
-		"has_password": user.PasswordHash.Valid, "google_linked": false,
+		"has_password": user.PasswordHash.Valid, "google_linked": linked,
 		"profile": profileDTO{Name: profile.Name, Currency: profile.Currency, Timezone: profile.Timezone, Theme: profile.Theme},
 	})
 }
@@ -347,4 +357,66 @@ func (s *Server) confirmEmailChange(c *gin.Context) {
 		return
 	}
 	noContent(s, c, s.auth.ConfirmEmailChange(c.Request.Context(), in.Token, clientInfo(c)))
+}
+
+const oidcCookie = "prumo_oidc"
+
+// writeOIDCCookie grava (ou, com maxAge negativo, apaga) o cookie do fluxo do Google. É Lax e
+// não Strict porque precisa voltar na navegação que vem do Google (AUT-21).
+func (s *Server) writeOIDCCookie(c *gin.Context, value string, maxAge int) {
+	http.SetCookie(c.Writer, &http.Cookie{ //nolint:gosec // Secure é dinâmico por ambiente, veja cookieSecure
+		Name: oidcCookie, Value: value, Path: "/api/v1/auth/google", MaxAge: maxAge,
+		HttpOnly: true, Secure: s.cookieSecure(), SameSite: http.SameSiteLaxMode,
+	})
+}
+
+func (s *Server) googleStart(c *gin.Context) {
+	refresh, _ := c.Cookie(refreshCookie)
+	intent := c.Query("intent")
+	authURL, cookie, err := s.auth.GoogleStart(c.Request.Context(), intent, refresh)
+	if err != nil {
+		var apiErr *httpx.Error
+		switch {
+		case errors.Is(err, auth.ErrRefreshInvalid), errors.Is(err, auth.ErrSessionRevoked):
+			// Vincular e reautenticar pedem sessão; é navegação, então o erro volta ao app em ?error=.
+			c.Redirect(http.StatusFound, s.auth.CallbackURL(intent, "UNAUTHENTICATED"))
+		case errors.As(err, &apiErr):
+			s.fail(c, err)
+		default:
+			s.log.Error("google start", "error", err, "request_id", httpx.RequestID(c))
+			c.Redirect(http.StatusFound, s.auth.CallbackURL(intent, auth.ErrOIDCFailed.Code))
+		}
+		return
+	}
+	s.writeOIDCCookie(c, cookie, int(10*time.Minute/time.Second))
+	c.Redirect(http.StatusFound, authURL)
+}
+
+func (s *Server) googleCallback(c *gin.Context) {
+	cookie, _ := c.Cookie(oidcCookie)
+	s.writeOIDCCookie(c, "", -1) // uso único
+	if c.Query("error") != "" {  // o usuário recusou no Google
+		c.Redirect(http.StatusFound, s.auth.CallbackURL("", auth.ErrOIDCFailed.Code))
+		return
+	}
+	res, err := s.auth.GoogleCallback(c.Request.Context(), cookie, c.Query("state"), c.Query("code"), clientInfo(c))
+	if err != nil {
+		code := auth.ErrOIDCFailed.Code
+		var apiErr *httpx.Error
+		if errors.As(err, &apiErr) {
+			code = apiErr.Code
+		} else {
+			s.log.Error("google callback", "error", err, "request_id", httpx.RequestID(c))
+		}
+		c.Redirect(http.StatusFound, s.auth.CallbackURL(res.Intent, code))
+		return
+	}
+	if res.Intent == auth.IntentLogin {
+		s.setRefreshCookie(c, res.Tokens.RefreshToken, res.Tokens.RefreshExpires)
+	}
+	c.Redirect(http.StatusFound, s.auth.CallbackURL(res.Intent, ""))
+}
+
+func (s *Server) unlinkGoogle(c *gin.Context) {
+	noContent(s, c, s.auth.UnlinkGoogle(c.Request.Context(), userID(c), clientInfo(c)))
 }

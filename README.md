@@ -78,7 +78,7 @@ A API tem autenticação própria (regras `AUT-*` do documento de regras). Rotas
 | `GET /me` | usuário e perfil |
 | `POST /auth/verify-email`, `POST /auth/verify-email/resend` | confirma o e-mail pelo link (24 h); reenvio limitado a 3 por hora |
 | `POST /auth/password/forgot`, `POST /auth/password/reset` | redefinição por link (1 h, uso único); `forgot` sempre responde 202; reset encerra todas as sessões |
-| `POST /auth/reauth` | confirma a senha por 5 minutos, exigido para trocar o e-mail |
+| `POST /auth/reauth` | confirma a senha por 5 minutos, exigido para trocar o e-mail (quem só tem Google usa `google/start?intent=reauth`) |
 | `PUT /me/password` | troca a senha (pede a atual) e encerra as outras sessões |
 | `POST /me/email`, `POST /me/email/confirm` | troca de e-mail: link ao endereço novo, aviso ao antigo; exige e-mail verificado e reautenticação |
 
@@ -87,6 +87,7 @@ A API tem autenticação própria (regras `AUT-*` do documento de regras). Rotas
 - **Refresh token:** 32 bytes aleatórios, só o SHA-256 vai ao banco, cookie `prumo_rt` (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth`). Cada uso gira o token; o anterior vale por 10 s para duas abas renovando juntas, e reuso depois disso revoga a sessão inteira.
 - **Sessão:** expira após 30 dias sem uso e 90 dias depois do login.
 - **CSRF:** as rotas de `/auth` exigem `Origin` igual a `APP_ORIGIN` e o cabeçalho `X-Prumo-Client: web`.
+- **Google (opcional, `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`):** `GET /auth/google/start?intent=login|link|reauth` redireciona ao Google (authorization code com PKCE S256, `state` e `nonce`, guardados num cookie `prumo_oidc` assinado, `HttpOnly`, `SameSite=Lax`, 10 min) e `GET /auth/google/callback` valida o `id_token` (assinatura, `iss`, `aud`, `exp`, `nonce`) e redireciona para `/auth/callback` do app, com o cookie de sessão no login ou `?error=<code>` em caso de falha. Só vale com `email_verified`; e-mail igual ao de uma conta já verificada vincula, conta não verificada pede login com senha antes (`ACCOUNT_LINK_REQUIRED`), e o primeiro acesso cria a conta como no cadastro, já verificada e sem senha. `DELETE /me/google` desvincula, desde que a conta tenha senha. Cadastre `<APP_ORIGIN>/api/v1/auth/google/callback` como URI de redirecionamento no Google.
 - **E-mails:** enviados pelo Resend (`RESEND_API_KEY`, `MAIL_FROM`). Os links apontam para `APP_ORIGIN` com o token no fragmento (`/verify-email#token=...`, `/reset-password#token=...`, `/confirm-email#token=...`), e só o SHA-256 do token fica no banco. Sem a chave, em desenvolvimento, a mensagem inteira sai no log. O remetente de teste do Resend só entrega ao dono da conta; para outros destinatários é preciso verificar um domínio e trocar `MAIL_FROM`.
 - **Cadastro:** `REGISTRATION_MODE=invite` (padrão) só aceita e-mails de `ALLOWED_EMAILS`.
 

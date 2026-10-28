@@ -61,6 +61,7 @@ type Service struct {
 	opts   Options
 	now    func() time.Time
 	mailWG sync.WaitGroup
+	google *google // nil se o login com Google não está configurado
 	// dummyHash gasta o mesmo tempo de um login real quando o e-mail não existe (AUT-10).
 	dummyHash string
 }
@@ -163,53 +164,18 @@ func (s *Service) Register(ctx context.Context, in RegisterInput, client ClientI
 	var verifyToken string
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
-		now := s.now().UTC()
-		userID := uuid.New()
-
-		user, err := q.CreateUser(ctx, store.CreateUserParams{
-			ID: userID, Email: email, PasswordHash: pgtype.Text{String: hash, Valid: true},
-		})
+		user, err := s.createUser(ctx, tx, newUser{Email: email, Name: name, PasswordHash: hash})
 		if err != nil {
 			return err
 		}
-		// As linhas abaixo estão sob RLS: valem só com app.user_id definido (PER-05, PER-06).
-		if _, err := tx.Exec(ctx, "SELECT set_config('app.user_id', $1, true)", userID.String()); err != nil {
-			return err
-		}
-		if err := q.CreateProfile(ctx, store.CreateProfileParams{UserID: userID, Name: name, Now: ts(now)}); err != nil {
-			return err
-		}
-		for i, c := range defaultCategories {
-			id, err := uuid.NewV7()
-			if err != nil {
-				return err
-			}
-			if err := q.CreateCategory(ctx, store.CreateCategoryParams{
-				ID: id, UserID: userID, Name: c.Name, Type: c.Type, Icon: c.Icon, Color: c.Color,
-				SortOrder: int32(i), Now: ts(now), //nolint:gosec // índice de uma lista fixa pequena
-			}); err != nil {
-				return err
-			}
-		}
-		accountID, err := uuid.NewV7()
-		if err != nil {
-			return err
-		}
-		if err := q.CreateAccount(ctx, store.CreateAccountParams{
-			ID: accountID, UserID: userID, Name: defaultAccountName, Type: defaultAccountType,
-			Color: defaultAccountColor, Icon: pgtype.Text{String: defaultAccountIcon, Valid: true}, Now: ts(now),
-		}); err != nil {
-			return err
-		}
-
 		out, err = s.openSession(ctx, q, user, client)
 		if err != nil {
 			return err
 		}
-		if verifyToken, err = s.issueToken(ctx, q, userID, purposeVerify, "", verifyTokenTTL); err != nil {
+		if verifyToken, err = s.issueToken(ctx, q, user.ID, purposeVerify, "", verifyTokenTTL); err != nil {
 			return err
 		}
-		return s.logEvent(ctx, q, &userID, "register", client, nil)
+		return s.logEvent(ctx, q, &user.ID, "register", client, nil)
 	})
 	if isUniqueViolation(err, "users_email_key") {
 		return Tokens{}, ErrEmailTaken
@@ -219,6 +185,64 @@ func (s *Service) Register(ctx context.Context, in RegisterInput, client ClientI
 	}
 	s.sendMail(mail.Verification(email, s.link("/verify-email", verifyToken))) // AUT-07
 	return out, nil
+}
+
+type newUser struct {
+	Email        string
+	Name         string
+	PasswordHash string // vazio em conta só Google
+	Verified     bool   // e-mail já confirmado (AUT-23)
+}
+
+// createUser cria usuário, perfil, categorias padrão e a conta Carteira dentro da transação
+// de quem chama (AUT-06). Deixa app.user_id definido na transação, para o RLS aceitar as linhas.
+func (s *Service) createUser(ctx context.Context, tx pgx.Tx, in newUser) (store.User, error) {
+	q := store.New(tx)
+	now := s.now().UTC()
+	userID := uuid.New()
+
+	user, err := q.CreateUser(ctx, store.CreateUserParams{
+		ID: userID, Email: in.Email, PasswordHash: pgtype.Text{String: in.PasswordHash, Valid: in.PasswordHash != ""},
+	})
+	if err != nil {
+		return store.User{}, err
+	}
+	if in.Verified {
+		if err := q.MarkEmailVerified(ctx, store.MarkEmailVerifiedParams{ID: userID, Now: ts(now)}); err != nil {
+			return store.User{}, err
+		}
+		user.EmailVerifiedAt = ts(now)
+	}
+	// As linhas abaixo estão sob RLS: valem só com app.user_id definido (PER-05, PER-06).
+	if _, err := tx.Exec(ctx, "SELECT set_config('app.user_id', $1, true)", userID.String()); err != nil {
+		return store.User{}, err
+	}
+	if err := q.CreateProfile(ctx, store.CreateProfileParams{UserID: userID, Name: in.Name, Now: ts(now)}); err != nil {
+		return store.User{}, err
+	}
+	for i, c := range defaultCategories {
+		id, err := uuid.NewV7()
+		if err != nil {
+			return store.User{}, err
+		}
+		if err := q.CreateCategory(ctx, store.CreateCategoryParams{
+			ID: id, UserID: userID, Name: c.Name, Type: c.Type, Icon: c.Icon, Color: c.Color,
+			SortOrder: int32(i), Now: ts(now), //nolint:gosec // índice de uma lista fixa pequena
+		}); err != nil {
+			return store.User{}, err
+		}
+	}
+	accountID, err := uuid.NewV7()
+	if err != nil {
+		return store.User{}, err
+	}
+	if err := q.CreateAccount(ctx, store.CreateAccountParams{
+		ID: accountID, UserID: userID, Name: defaultAccountName, Type: defaultAccountType,
+		Color: defaultAccountColor, Icon: pgtype.Text{String: defaultAccountIcon, Valid: true}, Now: ts(now),
+	}); err != nil {
+		return store.User{}, err
+	}
+	return user, nil
 }
 
 func (s *Service) mayRegister(email string) bool {

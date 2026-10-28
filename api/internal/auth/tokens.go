@@ -2,6 +2,7 @@ package auth
 
 import (
 	"crypto/ed25519"
+	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -61,6 +62,14 @@ func NewSigner(kid string, seed []byte, extraPublic map[string]ed25519.PublicKey
 		}
 	}
 	return &Signer{kid: kid, priv: priv, verify: verify}, nil
+}
+
+// DeriveKey deriva uma chave HMAC de 32 bytes, separada por rótulo, da semente de assinatura.
+// Serve para assinar dados curtos (cookie do login com Google) sem outro segredo para guardar.
+func (s *Signer) DeriveKey(label string) []byte {
+	mac := hmac.New(sha256.New, s.priv.Seed())
+	mac.Write([]byte("prumo/derive/" + label))
+	return mac.Sum(nil)
 }
 
 // GenerateSeed gera uma semente nova, codificada em base64 para a variável de ambiente.

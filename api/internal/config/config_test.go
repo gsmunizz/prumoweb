@@ -63,3 +63,22 @@ func TestLoadProductionRequiresSigningKey(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestLoadGoogleSettings(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://app")
+	t.Setenv("AUTH_DATABASE_URL", "postgres://auth")
+	t.Setenv("APP_ORIGIN", "https://prumo.example/")
+	t.Setenv("GOOGLE_CLIENT_ID", "id")
+	t.Setenv("GOOGLE_CLIENT_SECRET", "")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "GOOGLE_CLIENT_SECRET") {
+		t.Fatalf("id sem segredo deveria falhar, veio %v", err)
+	}
+	t.Setenv("GOOGLE_CLIENT_SECRET", "segredo")
+	c, err := Load()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := "https://prumo.example/api/v1/auth/google/callback"; c.GoogleRedirectURL != want {
+		t.Errorf("GoogleRedirectURL = %q, esperava %q", c.GoogleRedirectURL, want)
+	}
+}
