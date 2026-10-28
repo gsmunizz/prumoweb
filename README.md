@@ -1,0 +1,85 @@
+# Prumo
+
+Controle financeiro pessoal: PWA mobile-first que responde quanto dinheiro você tem, quanto gastou, com o quê, como o saldo evolui e como estão os investimentos.
+
+O app é local-first. A interface lê e grava só no banco local do navegador (IndexedDB) e uma fila sincroniza com a API em segundo plano, então registrar uma despesa nunca espera a rede.
+
+## Estrutura
+
+| Pasta | O que tem |
+| --- | --- |
+| `web/` | PWA em React, TypeScript e Vite; Tailwind com os tokens do design system; Dexie (IndexedDB); TanStack Router e Query; vite-plugin-pwa |
+| `api/` | API em Go com Gin; Postgres via pgx e sqlc; migrações com golang-migrate |
+| `api/db/migrations/` | Esquema do banco, com Row Level Security em toda tabela financeira |
+| `api/db/queries/` | SQL das consultas; o sqlc gera `api/internal/store` a partir delas |
+| `docker-compose.yml` | Postgres 16, migrações e API para desenvolvimento |
+
+As regras de negócio têm códigos (por exemplo `TRX-04`, `PER-06`) definidos no documento "Prumo — Regras de negócio e rotas do backend". Código, testes e commits citam esses códigos.
+
+## Rodando localmente
+
+Requisitos: Docker, Go 1.25+, Node 22+ e, para criar migrações, o CLI [`migrate`](https://github.com/golang-migrate/migrate/tree/master/cmd/migrate).
+
+```sh
+# 1. Banco e migrações
+docker compose up -d db migrate
+
+# 2. API em http://localhost:8080
+cd api
+cp .env.example .env
+make run
+
+# 3. App em http://localhost:5173 (o Vite repassa /api para a API)
+cd web
+npm install
+npm run dev
+```
+
+Para subir tudo em containers: `docker compose up --build`.
+
+Confira em `curl localhost:8080/api/v1/health`, que deve responder `{"status":"ok", ...}`.
+
+## Testes
+
+```sh
+cd web && npm test && npm run typecheck
+cd api && make test                # unitários
+cd api && make test-integration    # inclui RLS e papéis; precisa do banco do compose
+cd api && make lint                # golangci-lint e govulncheck
+```
+
+O CI (`.github/workflows/ci.yml`) roda tudo isso em cada PR, com um Postgres de verdade, e confere que o código do sqlc está atualizado e que a migração volta e sobe de novo.
+
+## Banco de dados e segurança
+
+A API conecta com três papéis diferentes, criados por `api/db/bootstrap.sql`:
+
+| Papel | Usado por | Pode |
+| --- | --- | --- |
+| `prumo_owner` | migrações | é dono das tabelas |
+| `prumo_app` | rotas de dados | tabelas financeiras, sempre sob RLS (`NOBYPASSRLS`) |
+| `prumo_auth` | módulo de autenticação | tabelas de login e sessão; só insere perfil, contas e categorias no cadastro |
+
+Toda requisição autenticada roda numa transação com `SET LOCAL app.user_id` (`database.WithUser`), e as políticas de RLS só liberam linhas desse usuário. Se o código esquecer de definir o usuário, a consulta volta vazia em vez de vazar dados. Os testes em `api/internal/database/rls_test.go` provam isso contra o banco.
+
+Valores em dinheiro são sempre centavos inteiros (`*_cents`). IDs são UUIDs gerados no cliente, para o app funcionar offline. Exclusão é lógica (`deleted_at`), e toda escrita ganha um `server_version` novo, que é o cursor do sync.
+
+## Novas migrações e consultas
+
+```sh
+cd api
+make migrate-new name=add_budgets   # cria NNNNNN_add_budgets.up.sql e .down.sql
+make migrate-up
+make generate                       # depois de mudar db/queries ou o esquema
+```
+
+## Deploy
+
+Ainda não configurado. O plano é o frontend na Vercel ou no Cloudflare Pages, com rewrite de `/api/*` para a API (mesmo caminho, mesma origem, sem CORS), e a API em container Docker (`api/Dockerfile`) num provedor no Brasil, com Postgres gerenciado. No MVP o app fica no endereço do host; um domínio próprio entra só trocando `APP_ORIGIN`.
+
+## Roadmap
+
+- **Fase 0 — Fundação:** repositório, CI, API, banco, tokens do design, autenticação própria e sync. Termina com login e sincronização funcionando de ponta a ponta.
+- **Fase 1 — MVP pessoal:** transações, contas, categorias, dashboard, calendário, investimentos, offline, configurações, exportação.
+- **Fase 2 — Hábito e automação:** orçamentos, recorrência, importação CSV/OFX, cotações, fatura de cartão.
+- **Fase 3 — Abertura:** cadastro público, Open Finance, notificações.
