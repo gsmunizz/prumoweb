@@ -33,6 +33,11 @@ type Config struct {
 	// TrustedProxies são os CIDRs dos proxies à frente da API cujo X-Forwarded-For vale.
 	// Sem isso, o IP visto é o da conexão, e os limites de login (AUT-11) contam o proxy.
 	TrustedProxies []string
+	// ResendAPIKey e MailFrom configuram o envio de e-mails (verificação, redefinição de senha).
+	// Sem a chave, em desenvolvimento, as mensagens vão para o log. Enquanto o Prumo não tiver
+	// domínio próprio verificado no Resend, o remetente de teste só entrega ao dono da conta.
+	ResendAPIKey string
+	MailFrom     string
 }
 
 func Load() (Config, error) {
@@ -49,6 +54,8 @@ func Load() (Config, error) {
 		AuthSigningKeyID: getenv("AUTH_SIGNING_KEY_ID", "k1"),
 		AuthPreviousKeys: splitCSV(os.Getenv("AUTH_PREVIOUS_PUBLIC_KEYS")),
 		TrustedProxies:   splitCSV(os.Getenv("TRUSTED_PROXIES")),
+		ResendAPIKey:     os.Getenv("RESEND_API_KEY"),
+		MailFrom:         getenv("MAIL_FROM", "Prumo <onboarding@resend.dev>"),
 	}
 
 	var errs []error
@@ -71,6 +78,9 @@ func Load() (Config, error) {
 	}
 	if c.IsProduction() && c.AuthSigningKey == "" {
 		errs = append(errs, errors.New("AUTH_SIGNING_KEY é obrigatória em produção"))
+	}
+	if c.IsProduction() && c.ResendAPIKey == "" {
+		errs = append(errs, errors.New("RESEND_API_KEY é obrigatória em produção"))
 	}
 	return c, errors.Join(errs...)
 }

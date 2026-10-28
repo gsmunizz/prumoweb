@@ -13,6 +13,62 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const consumeAuthToken = `-- name: ConsumeAuthToken :one
+UPDATE auth_tokens SET used_at = $1
+WHERE token_hash = $2 AND purpose = $3
+  AND used_at IS NULL AND expires_at > $1
+RETURNING id, user_id, purpose, token_hash, new_email, expires_at, used_at, created_at
+`
+
+type ConsumeAuthTokenParams struct {
+	Now       pgtype.Timestamptz `json:"now"`
+	TokenHash []byte             `json:"token_hash"`
+	Purpose   string             `json:"purpose"`
+}
+
+// Consumo atômico: o UPDATE só acerta um link ainda não usado e dentro do prazo, então
+// duas requisições com o mesmo link nunca passam as duas (uso único).
+func (q *Queries) ConsumeAuthToken(ctx context.Context, arg ConsumeAuthTokenParams) (AuthToken, error) {
+	row := q.db.QueryRow(ctx, consumeAuthToken, arg.Now, arg.TokenHash, arg.Purpose)
+	var i AuthToken
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Purpose,
+		&i.TokenHash,
+		&i.NewEmail,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const countEventsByEmailHash = `-- name: CountEventsByEmailHash :one
+SELECT count(*)::int AS events, min(created_at)::timestamptz AS oldest
+FROM security_events
+WHERE kind = $1 AND metadata->>'email_hash' = $2::text AND created_at > $3
+`
+
+type CountEventsByEmailHashParams struct {
+	Kind      string             `json:"kind"`
+	EmailHash string             `json:"email_hash"`
+	Since     pgtype.Timestamptz `json:"since"`
+}
+
+type CountEventsByEmailHashRow struct {
+	Events int32              `json:"events"`
+	Oldest pgtype.Timestamptz `json:"oldest"`
+}
+
+// Limite de pedidos de redefinição por e-mail (AUT-25); vale também para e-mails sem conta.
+func (q *Queries) CountEventsByEmailHash(ctx context.Context, arg CountEventsByEmailHashParams) (CountEventsByEmailHashRow, error) {
+	row := q.db.QueryRow(ctx, countEventsByEmailHash, arg.Kind, arg.EmailHash, arg.Since)
+	var i CountEventsByEmailHashRow
+	err := row.Scan(&i.Events, &i.Oldest)
+	return i, err
+}
+
 const countLoginFailuresForEmailIP = `-- name: CountLoginFailuresForEmailIP :one
 SELECT count(*)::int AS failures, min(created_at)::timestamptz AS oldest
 FROM security_events
@@ -67,6 +123,31 @@ func (q *Queries) CountLoginFailuresForIP(ctx context.Context, arg CountLoginFai
 	return i, err
 }
 
+const countUserEvents = `-- name: CountUserEvents :one
+SELECT count(*)::int AS events, min(created_at)::timestamptz AS oldest
+FROM security_events
+WHERE user_id = $1 AND kind = $2 AND created_at > $3
+`
+
+type CountUserEventsParams struct {
+	UserID uuid.NullUUID      `json:"user_id"`
+	Kind   string             `json:"kind"`
+	Since  pgtype.Timestamptz `json:"since"`
+}
+
+type CountUserEventsRow struct {
+	Events int32              `json:"events"`
+	Oldest pgtype.Timestamptz `json:"oldest"`
+}
+
+// Limites por usuário (reenvio de verificação, troca de e-mail, falhas de reautenticação).
+func (q *Queries) CountUserEvents(ctx context.Context, arg CountUserEventsParams) (CountUserEventsRow, error) {
+	row := q.db.QueryRow(ctx, countUserEvents, arg.UserID, arg.Kind, arg.Since)
+	var i CountUserEventsRow
+	err := row.Scan(&i.Events, &i.Oldest)
+	return i, err
+}
+
 const createAccount = `-- name: CreateAccount :exec
 INSERT INTO accounts (id, user_id, name, type, initial_balance_cents, color, icon, sort_order, created_at, updated_at)
 VALUES ($1, $2, $3, $4, 0, $5, $6, $7, $8, $8)
@@ -93,6 +174,31 @@ func (q *Queries) CreateAccount(ctx context.Context, arg CreateAccountParams) er
 		arg.Icon,
 		arg.SortOrder,
 		arg.Now,
+	)
+	return err
+}
+
+const createAuthToken = `-- name: CreateAuthToken :exec
+INSERT INTO auth_tokens (user_id, purpose, token_hash, new_email, expires_at)
+VALUES ($1, $2, $3, $4, $5)
+`
+
+type CreateAuthTokenParams struct {
+	UserID    uuid.UUID          `json:"user_id"`
+	Purpose   string             `json:"purpose"`
+	TokenHash []byte             `json:"token_hash"`
+	NewEmail  pgtype.Text        `json:"new_email"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+// Links por e-mail (AUT-07, AUT-25, AUT-28). Só o SHA-256 do token vai ao banco.
+func (q *Queries) CreateAuthToken(ctx context.Context, arg CreateAuthTokenParams) error {
+	_, err := q.db.Exec(ctx, createAuthToken,
+		arg.UserID,
+		arg.Purpose,
+		arg.TokenHash,
+		arg.NewEmail,
+		arg.ExpiresAt,
 	)
 	return err
 }
@@ -340,6 +446,23 @@ func (q *Queries) InsertSecurityEvent(ctx context.Context, arg InsertSecurityEve
 	return err
 }
 
+const invalidateAuthTokens = `-- name: InvalidateAuthTokens :exec
+UPDATE auth_tokens SET used_at = $1
+WHERE user_id = $2 AND purpose = $3 AND used_at IS NULL
+`
+
+type InvalidateAuthTokensParams struct {
+	Now     pgtype.Timestamptz `json:"now"`
+	UserID  uuid.UUID          `json:"user_id"`
+	Purpose string             `json:"purpose"`
+}
+
+// Um pedido novo invalida os links anteriores do mesmo tipo.
+func (q *Queries) InvalidateAuthTokens(ctx context.Context, arg InvalidateAuthTokensParams) error {
+	_, err := q.db.Exec(ctx, invalidateAuthTokens, arg.Now, arg.UserID, arg.Purpose)
+	return err
+}
+
 const listActiveSessions = `-- name: ListActiveSessions :many
 SELECT id, user_id, refresh_hash, prev_refresh_hash, prev_valid_until, device, created_at, last_used_at, expires_at, reauth_at, revoked_at FROM sessions
 WHERE user_id = $1
@@ -385,6 +508,39 @@ func (q *Queries) ListActiveSessions(ctx context.Context, arg ListActiveSessions
 		return nil, err
 	}
 	return items, nil
+}
+
+const markEmailVerified = `-- name: MarkEmailVerified :exec
+UPDATE users SET email_verified_at = COALESCE(email_verified_at, $1), updated_at = $1
+WHERE id = $2
+`
+
+type MarkEmailVerifiedParams struct {
+	Now pgtype.Timestamptz `json:"now"`
+	ID  uuid.UUID          `json:"id"`
+}
+
+func (q *Queries) MarkEmailVerified(ctx context.Context, arg MarkEmailVerifiedParams) error {
+	_, err := q.db.Exec(ctx, markEmailVerified, arg.Now, arg.ID)
+	return err
+}
+
+const revokeAllSessions = `-- name: RevokeAllSessions :execrows
+UPDATE sessions SET revoked_at = $1
+WHERE user_id = $2 AND revoked_at IS NULL
+`
+
+type RevokeAllSessionsParams struct {
+	Now    pgtype.Timestamptz `json:"now"`
+	UserID uuid.UUID          `json:"user_id"`
+}
+
+func (q *Queries) RevokeAllSessions(ctx context.Context, arg RevokeAllSessionsParams) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeAllSessions, arg.Now, arg.UserID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const revokeOtherSessions = `-- name: RevokeOtherSessions :execrows
@@ -483,4 +639,51 @@ func (q *Queries) RotateSession(ctx context.Context, arg RotateSessionParams) (S
 		&i.RevokedAt,
 	)
 	return i, err
+}
+
+const setPasswordHash = `-- name: SetPasswordHash :exec
+UPDATE users SET password_hash = $1, updated_at = $2
+WHERE id = $3
+`
+
+type SetPasswordHashParams struct {
+	PasswordHash pgtype.Text        `json:"password_hash"`
+	Now          pgtype.Timestamptz `json:"now"`
+	ID           uuid.UUID          `json:"id"`
+}
+
+func (q *Queries) SetPasswordHash(ctx context.Context, arg SetPasswordHashParams) error {
+	_, err := q.db.Exec(ctx, setPasswordHash, arg.PasswordHash, arg.Now, arg.ID)
+	return err
+}
+
+const setSessionReauth = `-- name: SetSessionReauth :exec
+UPDATE sessions SET reauth_at = $1 WHERE id = $2
+`
+
+type SetSessionReauthParams struct {
+	Now pgtype.Timestamptz `json:"now"`
+	ID  uuid.UUID          `json:"id"`
+}
+
+func (q *Queries) SetSessionReauth(ctx context.Context, arg SetSessionReauthParams) error {
+	_, err := q.db.Exec(ctx, setSessionReauth, arg.Now, arg.ID)
+	return err
+}
+
+const setUserEmail = `-- name: SetUserEmail :exec
+UPDATE users SET email = $1, email_verified_at = $2, updated_at = $2
+WHERE id = $3
+`
+
+type SetUserEmailParams struct {
+	Email string             `json:"email"`
+	Now   pgtype.Timestamptz `json:"now"`
+	ID    uuid.UUID          `json:"id"`
+}
+
+// O endereço novo foi confirmado por link, então já nasce verificado.
+func (q *Queries) SetUserEmail(ctx context.Context, arg SetUserEmailParams) error {
+	_, err := q.db.Exec(ctx, setUserEmail, arg.Email, arg.Now, arg.ID)
+	return err
 }

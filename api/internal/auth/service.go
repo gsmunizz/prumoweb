@@ -6,9 +6,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"net/mail"
+	netmail "net/mail"
 	"net/netip"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/gsmunizz/prumoweb/api/internal/httpx"
+	"github.com/gsmunizz/prumoweb/api/internal/mail"
 	"github.com/gsmunizz/prumoweb/api/internal/store"
 )
 
@@ -48,6 +50,8 @@ var (
 type Options struct {
 	RegistrationMode string   // invite | open | closed (AUT-01)
 	AllowedEmails    []string // já em minúsculas
+	AppOrigin        string   // base dos links enviados por e-mail
+	Mail             mail.Sender
 }
 
 // Service implementa os fluxos de autenticação sobre o pool do papel prumo_auth (PER-07).
@@ -56,9 +60,13 @@ type Service struct {
 	signer *Signer
 	opts   Options
 	now    func() time.Time
+	mailWG sync.WaitGroup
 	// dummyHash gasta o mesmo tempo de um login real quando o e-mail não existe (AUT-10).
 	dummyHash string
 }
+
+// SetMailer troca o remetente de e-mails; existe para os testes lerem as mensagens.
+func (s *Service) SetMailer(m mail.Sender) { s.opts.Mail = m }
 
 // SetClock troca o relógio do serviço; existe para os testes avançarem o tempo.
 func (s *Service) SetClock(now func() time.Time) { s.now = now }
@@ -111,7 +119,7 @@ func NormalizeEmail(raw string) (string, bool) {
 	if e == "" || len(e) > maxEmailLen {
 		return "", false
 	}
-	addr, err := mail.ParseAddress(e)
+	addr, err := netmail.ParseAddress(e)
 	if err != nil || addr.Address != e || !strings.Contains(e[strings.LastIndex(e, "@"):], ".") {
 		return "", false
 	}
@@ -152,6 +160,7 @@ func (s *Service) Register(ctx context.Context, in RegisterInput, client ClientI
 	}
 
 	var out Tokens
+	var verifyToken string
 	err = pgx.BeginFunc(ctx, s.db, func(tx pgx.Tx) error {
 		q := store.New(tx)
 		now := s.now().UTC()
@@ -197,12 +206,19 @@ func (s *Service) Register(ctx context.Context, in RegisterInput, client ClientI
 		if err != nil {
 			return err
 		}
+		if verifyToken, err = s.issueToken(ctx, q, userID, purposeVerify, "", verifyTokenTTL); err != nil {
+			return err
+		}
 		return s.logEvent(ctx, q, &userID, "register", client, nil)
 	})
 	if isUniqueViolation(err, "users_email_key") {
 		return Tokens{}, ErrEmailTaken
 	}
-	return out, err
+	if err != nil {
+		return out, err
+	}
+	s.sendMail(mail.Verification(email, s.link("/verify-email", verifyToken))) // AUT-07
+	return out, nil
 }
 
 func (s *Service) mayRegister(email string) bool {

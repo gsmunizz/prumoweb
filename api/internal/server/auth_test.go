@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -20,6 +21,7 @@ import (
 
 	"github.com/gsmunizz/prumoweb/api/internal/config"
 	"github.com/gsmunizz/prumoweb/api/internal/database"
+	"github.com/gsmunizz/prumoweb/api/internal/mail"
 )
 
 // Testes de integração da autenticação. Precisam do banco com as migrações aplicadas:
@@ -37,6 +39,7 @@ type env struct {
 	authPool *pgxpool.Pool
 	mu       sync.Mutex
 	clock    time.Time
+	mail     *mail.Memory
 }
 
 func (e *env) now() time.Time {
@@ -76,7 +79,8 @@ func newEnv(t *testing.T, mode string, allowed ...string) *env {
 	if err != nil {
 		t.Fatal(err)
 	}
-	e := &env{t: t, srv: srv, h: srv.Handler(), app: app, authPool: authPool, clock: time.Now()}
+	e := &env{t: t, srv: srv, h: srv.Handler(), app: app, authPool: authPool, clock: time.Now(), mail: &mail.Memory{}}
+	srv.SetMailer(e.mail)
 	srv.SetClock(e.now)
 	return e
 }
@@ -367,7 +371,9 @@ func TestLogin(t *testing.T) {
 func TestLoginRateLimit(t *testing.T) {
 	e := newEnv(t, "open")
 	a := e.register("Ana")
-	ip := "203.0.113.20"
+	// IP sorteado: o log de segurança sobrevive entre execuções e o limite por IP é de 30 por hora.
+	id := uuid.New()
+	ip := fmt.Sprintf("198.18.%d.%d", id[0], id[1])
 	bad := map[string]any{"email": a.email, "password": wrongPassword}
 
 	for i := 0; i < 5; i++ {

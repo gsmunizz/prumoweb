@@ -44,6 +44,11 @@ func (s *Server) registerAuthRoutes(v1 *gin.RouterGroup) {
 	g.POST("/login", s.login)
 	g.POST("/refresh", s.refresh)
 	g.POST("/logout", s.logout)
+	g.POST("/verify-email", s.verifyEmail)
+	g.POST("/verify-email/resend", s.requireAuth(true), s.resendVerification)
+	g.POST("/password/forgot", s.forgotPassword)
+	g.POST("/password/reset", s.resetPassword)
+	g.POST("/reauth", s.requireAuth(true), s.reauth)
 
 	sessions := g.Group("/sessions", s.requireAuth(true))
 	sessions.GET("", s.listSessions)
@@ -51,6 +56,9 @@ func (s *Server) registerAuthRoutes(v1 *gin.RouterGroup) {
 	sessions.DELETE("/:id", s.revokeSession)
 
 	v1.GET("/me", s.requireAuth(false), s.me)
+	v1.PUT("/me/password", s.requireAuth(true), s.changePassword)
+	v1.POST("/me/email", s.requireAuth(true), s.requestEmailChange)
+	v1.POST("/me/email/confirm", s.confirmEmailChange)
 }
 
 func clientInfo(c *gin.Context) auth.ClientInfo {
@@ -243,3 +251,100 @@ func (s *Server) me(c *gin.Context) {
 
 // formatInstant: RFC 3339 em UTC com milissegundos, como em toda a API.
 func formatInstant(t time.Time) string { return t.UTC().Format("2006-01-02T15:04:05.000Z") }
+
+func noContent(s *Server, c *gin.Context, err error) {
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
+}
+
+func (s *Server) verifyEmail(c *gin.Context) {
+	var in struct {
+		Token string `json:"token"`
+	}
+	if !bind(c, &in) {
+		return
+	}
+	noContent(s, c, s.auth.VerifyEmail(c.Request.Context(), in.Token, clientInfo(c)))
+}
+
+func (s *Server) resendVerification(c *gin.Context) {
+	err := s.auth.ResendVerification(c.Request.Context(), userID(c), clientInfo(c))
+	if err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.Status(http.StatusAccepted)
+}
+
+func (s *Server) forgotPassword(c *gin.Context) {
+	var in struct {
+		Email string `json:"email"`
+	}
+	if !bind(c, &in) {
+		return
+	}
+	if err := s.auth.ForgotPassword(c.Request.Context(), in.Email, clientInfo(c)); err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.Status(http.StatusAccepted) // sempre 202 (AUT-25)
+}
+
+func (s *Server) resetPassword(c *gin.Context) {
+	var in struct {
+		Token       string `json:"token"`
+		NewPassword string `json:"new_password"`
+	}
+	if !bind(c, &in) {
+		return
+	}
+	noContent(s, c, s.auth.ResetPassword(c.Request.Context(), in.Token, in.NewPassword, clientInfo(c)))
+}
+
+func (s *Server) reauth(c *gin.Context) {
+	var in struct {
+		Password string `json:"password"`
+	}
+	if !bind(c, &in) {
+		return
+	}
+	noContent(s, c, s.auth.Reauth(c.Request.Context(), userID(c), sessionID(c), in.Password, clientInfo(c)))
+}
+
+func (s *Server) changePassword(c *gin.Context) {
+	var in struct {
+		CurrentPassword string `json:"current_password"`
+		NewPassword     string `json:"new_password"`
+	}
+	if !bind(c, &in) {
+		return
+	}
+	noContent(s, c, s.auth.ChangePassword(c.Request.Context(), userID(c), sessionID(c), in.CurrentPassword, in.NewPassword, clientInfo(c)))
+}
+
+func (s *Server) requestEmailChange(c *gin.Context) {
+	var in struct {
+		NewEmail string `json:"new_email"`
+	}
+	if !bind(c, &in) {
+		return
+	}
+	if err := s.auth.RequestEmailChange(c.Request.Context(), userID(c), sessionID(c), in.NewEmail, clientInfo(c)); err != nil {
+		s.fail(c, err)
+		return
+	}
+	c.Status(http.StatusAccepted)
+}
+
+func (s *Server) confirmEmailChange(c *gin.Context) {
+	var in struct {
+		Token string `json:"token"`
+	}
+	if !bind(c, &in) {
+		return
+	}
+	noContent(s, c, s.auth.ConfirmEmailChange(c.Request.Context(), in.Token, clientInfo(c)))
+}

@@ -74,5 +74,7 @@ func run(log *slog.Logger) error {
 
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
-	return srv.Shutdown(shutdownCtx)
+	err = srv.Shutdown(shutdownCtx)
+	api.Wait() // deixa terminar os e-mails já disparados
+	return err
 }
