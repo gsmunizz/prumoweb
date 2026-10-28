@@ -139,3 +139,18 @@ WHERE user_id = sqlc.arg(user_id) AND kind = sqlc.arg(kind) AND created_at > sql
 SELECT count(*)::int AS events, min(created_at)::timestamptz AS oldest
 FROM security_events
 WHERE kind = sqlc.arg(kind) AND metadata->>'email_hash' = sqlc.arg(email_hash)::text AND created_at > sqlc.arg(since);
+
+-- Login com Google (AUT-21 a AUT-24).
+-- name: GetIdentityBySubject :one
+SELECT * FROM identities WHERE provider = sqlc.arg(provider) AND subject = sqlc.arg(subject);
+
+-- name: GetIdentityByUser :one
+SELECT * FROM identities WHERE user_id = sqlc.arg(user_id) AND provider = sqlc.arg(provider);
+
+-- name: CreateIdentity :exec
+INSERT INTO identities (user_id, provider, subject, email)
+VALUES (sqlc.arg(user_id), sqlc.arg(provider), sqlc.arg(subject), sqlc.arg(email));
+
+-- name: DeleteIdentity :execrows
+DELETE FROM identities WHERE user_id = sqlc.arg(user_id) AND provider = sqlc.arg(provider);
+

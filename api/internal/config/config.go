@@ -38,24 +38,37 @@ type Config struct {
 	// domínio próprio verificado no Resend, o remetente de teste só entrega ao dono da conta.
 	ResendAPIKey string
 	MailFrom     string
+	// GoogleClientID e GoogleClientSecret ligam o login com Google (AUT-21). Vazios, as rotas
+	// /auth/google/* respondem 404. GoogleRedirectURL é o callback cadastrado no Google; o
+	// padrão é APP_ORIGIN + /api/v1/auth/google/callback.
+	GoogleClientID     string
+	GoogleClientSecret string
+	GoogleRedirectURL  string
 }
 
 func Load() (Config, error) {
 	c := Config{
-		Env:              getenv("PRUMO_ENV", "development"),
-		Port:             getenv("PORT", "8080"),
-		AppOrigin:        strings.TrimRight(os.Getenv("APP_ORIGIN"), "/"),
-		DatabaseURL:      os.Getenv("DATABASE_URL"),
-		AuthDatabaseURL:  os.Getenv("AUTH_DATABASE_URL"),
-		RegistrationMode: getenv("REGISTRATION_MODE", "invite"),
-		AllowedEmails:    splitList(os.Getenv("ALLOWED_EMAILS")),
-		Version:          getenv("PRUMO_VERSION", "dev"),
-		AuthSigningKey:   os.Getenv("AUTH_SIGNING_KEY"),
-		AuthSigningKeyID: getenv("AUTH_SIGNING_KEY_ID", "k1"),
-		AuthPreviousKeys: splitCSV(os.Getenv("AUTH_PREVIOUS_PUBLIC_KEYS")),
-		TrustedProxies:   splitCSV(os.Getenv("TRUSTED_PROXIES")),
-		ResendAPIKey:     os.Getenv("RESEND_API_KEY"),
-		MailFrom:         getenv("MAIL_FROM", "Prumo <onboarding@resend.dev>"),
+		Env:                getenv("PRUMO_ENV", "development"),
+		Port:               getenv("PORT", "8080"),
+		AppOrigin:          strings.TrimRight(os.Getenv("APP_ORIGIN"), "/"),
+		DatabaseURL:        os.Getenv("DATABASE_URL"),
+		AuthDatabaseURL:    os.Getenv("AUTH_DATABASE_URL"),
+		RegistrationMode:   getenv("REGISTRATION_MODE", "invite"),
+		AllowedEmails:      splitList(os.Getenv("ALLOWED_EMAILS")),
+		Version:            getenv("PRUMO_VERSION", "dev"),
+		AuthSigningKey:     os.Getenv("AUTH_SIGNING_KEY"),
+		AuthSigningKeyID:   getenv("AUTH_SIGNING_KEY_ID", "k1"),
+		AuthPreviousKeys:   splitCSV(os.Getenv("AUTH_PREVIOUS_PUBLIC_KEYS")),
+		TrustedProxies:     splitCSV(os.Getenv("TRUSTED_PROXIES")),
+		ResendAPIKey:       os.Getenv("RESEND_API_KEY"),
+		MailFrom:           getenv("MAIL_FROM", "Prumo <onboarding@resend.dev>"),
+		GoogleClientID:     os.Getenv("GOOGLE_CLIENT_ID"),
+		GoogleClientSecret: os.Getenv("GOOGLE_CLIENT_SECRET"),
+		GoogleRedirectURL:  os.Getenv("GOOGLE_REDIRECT_URL"),
+	}
+
+	if c.GoogleRedirectURL == "" {
+		c.GoogleRedirectURL = c.AppOrigin + "/api/v1/auth/google/callback"
 	}
 
 	var errs []error
@@ -81,6 +94,9 @@ func Load() (Config, error) {
 	}
 	if c.IsProduction() && c.ResendAPIKey == "" {
 		errs = append(errs, errors.New("RESEND_API_KEY é obrigatória em produção"))
+	}
+	if (c.GoogleClientID == "") != (c.GoogleClientSecret == "") {
+		errs = append(errs, errors.New("GOOGLE_CLIENT_ID e GOOGLE_CLIENT_SECRET devem vir juntas"))
 	}
 	return c, errors.Join(errs...)
 }

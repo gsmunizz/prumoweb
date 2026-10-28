@@ -233,6 +233,28 @@ func (q *Queries) CreateCategory(ctx context.Context, arg CreateCategoryParams) 
 	return err
 }
 
+const createIdentity = `-- name: CreateIdentity :exec
+INSERT INTO identities (user_id, provider, subject, email)
+VALUES ($1, $2, $3, $4)
+`
+
+type CreateIdentityParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Provider string    `json:"provider"`
+	Subject  string    `json:"subject"`
+	Email    string    `json:"email"`
+}
+
+func (q *Queries) CreateIdentity(ctx context.Context, arg CreateIdentityParams) error {
+	_, err := q.db.Exec(ctx, createIdentity,
+		arg.UserID,
+		arg.Provider,
+		arg.Subject,
+		arg.Email,
+	)
+	return err
+}
+
 const createProfile = `-- name: CreateProfile :exec
 INSERT INTO profiles (id, user_id, name, created_at, updated_at)
 VALUES ($1, $1, $2, $3, $3)
@@ -313,6 +335,70 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.PasswordHash,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const deleteIdentity = `-- name: DeleteIdentity :execrows
+DELETE FROM identities WHERE user_id = $1 AND provider = $2
+`
+
+type DeleteIdentityParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Provider string    `json:"provider"`
+}
+
+func (q *Queries) DeleteIdentity(ctx context.Context, arg DeleteIdentityParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteIdentity, arg.UserID, arg.Provider)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const getIdentityBySubject = `-- name: GetIdentityBySubject :one
+SELECT id, user_id, provider, subject, email, created_at FROM identities WHERE provider = $1 AND subject = $2
+`
+
+type GetIdentityBySubjectParams struct {
+	Provider string `json:"provider"`
+	Subject  string `json:"subject"`
+}
+
+// Login com Google (AUT-21 a AUT-24).
+func (q *Queries) GetIdentityBySubject(ctx context.Context, arg GetIdentityBySubjectParams) (Identity, error) {
+	row := q.db.QueryRow(ctx, getIdentityBySubject, arg.Provider, arg.Subject)
+	var i Identity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.Subject,
+		&i.Email,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getIdentityByUser = `-- name: GetIdentityByUser :one
+SELECT id, user_id, provider, subject, email, created_at FROM identities WHERE user_id = $1 AND provider = $2
+`
+
+type GetIdentityByUserParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	Provider string    `json:"provider"`
+}
+
+func (q *Queries) GetIdentityByUser(ctx context.Context, arg GetIdentityByUserParams) (Identity, error) {
+	row := q.db.QueryRow(ctx, getIdentityByUser, arg.UserID, arg.Provider)
+	var i Identity
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Provider,
+		&i.Subject,
+		&i.Email,
+		&i.CreatedAt,
 	)
 	return i, err
 }

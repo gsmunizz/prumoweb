@@ -45,6 +45,9 @@ func New(cfg config.Config, log *slog.Logger, app, authPool *pgxpool.Pool) (*Ser
 	if err != nil {
 		return nil, err
 	}
+	svc.SetGoogle(auth.GoogleConfig{
+		ClientID: cfg.GoogleClientID, ClientSecret: cfg.GoogleClientSecret, RedirectURL: cfg.GoogleRedirectURL,
+	})
 	return &Server{cfg: cfg, log: log, app: app, signer: signer, auth: svc, now: time.Now}, nil
 }
 
