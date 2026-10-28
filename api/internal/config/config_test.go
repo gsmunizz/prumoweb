@@ -42,3 +42,19 @@ func TestLoadMissing(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadProductionRequiresSigningKey(t *testing.T) {
+	t.Setenv("DATABASE_URL", "postgres://app")
+	t.Setenv("AUTH_DATABASE_URL", "postgres://auth")
+	t.Setenv("APP_ORIGIN", "https://prumo.example")
+	t.Setenv("PRUMO_ENV", "production")
+	t.Setenv("AUTH_SIGNING_KEY", "")
+
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "AUTH_SIGNING_KEY") {
+		t.Fatalf("produção sem chave deveria falhar, veio %v", err)
+	}
+	t.Setenv("AUTH_SIGNING_KEY", "c2VtZW50ZQ==")
+	if _, err := Load(); err != nil {
+		t.Fatal(err)
+	}
+}

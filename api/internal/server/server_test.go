@@ -26,7 +26,11 @@ func TestHealth(t *testing.T) {
 	defer pool.Close()
 
 	cfg := config.Config{Env: "development", Version: "teste"}
-	h := New(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)), pool, pool).Handler()
+	srv, err := New(cfg, slog.New(slog.NewTextHandler(io.Discard, nil)), pool, pool)
+	if err != nil {
+		t.Fatal(err)
+	}
+	h := srv.Handler()
 
 	w := httptest.NewRecorder()
 	h.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/api/v1/health", nil))

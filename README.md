@@ -64,6 +64,28 @@ Toda requisição autenticada roda numa transação com `SET LOCAL app.user_id` 
 
 Valores em dinheiro são sempre centavos inteiros (`*_cents`). IDs são UUIDs gerados no cliente, para o app funcionar offline. Exclusão é lógica (`deleted_at`), e toda escrita ganha um `server_version` novo, que é o cursor do sync.
 
+## Autenticação
+
+A API tem autenticação própria (regras `AUT-*` do documento de regras). Rotas em `/api/v1`:
+
+| Rota | O que faz |
+| --- | --- |
+| `POST /auth/register` | cria usuário, perfil, 18 categorias padrão e a conta Carteira numa transação; abre a sessão |
+| `POST /auth/login` | e-mail e senha; no máximo 5 falhas em 15 min por e-mail + IP |
+| `POST /auth/refresh` | troca o refresh token do cookie por outro e emite um token de acesso |
+| `POST /auth/logout` | revoga a sessão e apaga o cookie |
+| `GET /auth/sessions`, `DELETE /auth/sessions[/{id}]` | lista e revoga sessões do próprio usuário |
+| `GET /me` | usuário e perfil |
+
+- **Senha:** argon2id (64 MiB, t=3, p=1), 10 a 128 caracteres, fora das senhas mais comuns.
+- **Token de acesso:** JWT Ed25519 de 15 minutos, guardado só em memória no cliente.
+- **Refresh token:** 32 bytes aleatórios, só o SHA-256 vai ao banco, cookie `prumo_rt` (`HttpOnly`, `Secure`, `SameSite=Strict`, `Path=/api/v1/auth`). Cada uso gira o token; o anterior vale por 10 s para duas abas renovando juntas, e reuso depois disso revoga a sessão inteira.
+- **Sessão:** expira após 30 dias sem uso e 90 dias depois do login.
+- **CSRF:** as rotas de `/auth` exigem `Origin` igual a `APP_ORIGIN` e o cabeçalho `X-Prumo-Client: web`.
+- **Cadastro:** `REGISTRATION_MODE=invite` (padrão) só aceita e-mails de `ALLOWED_EMAILS`.
+
+Antes de subir em produção, gere a chave de assinatura com `go run ./cmd/keygen` e guarde `AUTH_SIGNING_KEY` no cofre do provedor. Veja `api/.env.example` para a rotação de chave e `TRUSTED_PROXIES`.
+
 ## Novas migrações e consultas
 
 ```sh

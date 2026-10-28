@@ -44,9 +44,13 @@ func run(log *slog.Logger) error {
 	}
 	defer auth.Close()
 
+	api, err := server.New(cfg, log, app, auth)
+	if err != nil {
+		return err
+	}
 	srv := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           server.New(cfg, log, app, auth).Handler(),
+		Handler:           api.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       30 * time.Second,
 		WriteTimeout:      60 * time.Second,

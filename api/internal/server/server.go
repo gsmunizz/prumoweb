@@ -3,6 +3,8 @@ package server
 
 import (
 	"context"
+	"encoding/base64"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -10,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/gsmunizz/prumoweb/api/internal/auth"
 	"github.com/gsmunizz/prumoweb/api/internal/config"
 	"github.com/gsmunizz/prumoweb/api/internal/httpx"
 	"github.com/gsmunizz/prumoweb/api/internal/store"
@@ -19,12 +22,56 @@ type Server struct {
 	cfg config.Config
 	log *slog.Logger
 	// app conecta como prumo_app (dados, com RLS); auth como prumo_auth (PER-04, PER-07).
-	app  *pgxpool.Pool
-	auth *pgxpool.Pool
+	app    *pgxpool.Pool
+	signer *auth.Signer
+	auth   *auth.Service
+	now    func() time.Time
 }
 
-func New(cfg config.Config, log *slog.Logger, app, auth *pgxpool.Pool) *Server {
-	return &Server{cfg: cfg, log: log, app: app, auth: auth}
+func New(cfg config.Config, log *slog.Logger, app, authPool *pgxpool.Pool) (*Server, error) {
+	signer, err := newSigner(cfg, log)
+	if err != nil {
+		return nil, err
+	}
+	svc, err := auth.NewService(authPool, signer, auth.Options{
+		RegistrationMode: cfg.RegistrationMode, AllowedEmails: cfg.AllowedEmails,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &Server{cfg: cfg, log: log, app: app, signer: signer, auth: svc, now: time.Now}, nil
+}
+
+// SetClock troca o relógio da API e do serviço de autenticação; existe para os testes.
+func (s *Server) SetClock(now func() time.Time) {
+	s.now = now
+	s.auth.SetClock(now)
+}
+
+func newSigner(cfg config.Config, log *slog.Logger) (*auth.Signer, error) {
+	key := cfg.AuthSigningKey
+	if key == "" {
+		// Só chega aqui em desenvolvimento (config.Load exige a chave em produção).
+		generated, err := auth.GenerateSeed()
+		if err != nil {
+			return nil, err
+		}
+		key = generated
+		log.Warn("AUTH_SIGNING_KEY ausente: usando chave temporária, os tokens morrem a cada reinício")
+	}
+	seed, err := base64.StdEncoding.DecodeString(key)
+	if err != nil {
+		return nil, fmt.Errorf("AUTH_SIGNING_KEY não é base64: %w", err)
+	}
+	previous, err := auth.ParsePreviousKeys(cfg.AuthPreviousKeys)
+	if err != nil {
+		return nil, err
+	}
+	kid := cfg.AuthSigningKeyID
+	if kid == "" {
+		kid = "k1"
+	}
+	return auth.NewSigner(kid, seed, previous)
 }
 
 // Handler devolve o roteador. As rotas ficam sob /api/v1, o mesmo caminho que o
@@ -35,9 +82,13 @@ func (s *Server) Handler() http.Handler {
 	}
 	r := gin.New()
 	r.HandleMethodNotAllowed = true
-	// Nenhum proxy é confiável por enquanto: c.ClientIP() usa o IP da conexão.
-	// O cabeçalho de IP do host entra junto com os limites de taxa (AUT-11).
-	_ = r.SetTrustedProxies(nil)
+	// Sem TRUSTED_PROXIES, c.ClientIP() usa o IP da conexão (nil desliga a confiança em X-Forwarded-For).
+	if len(s.cfg.TrustedProxies) == 0 {
+		_ = r.SetTrustedProxies(nil)
+	} else if err := r.SetTrustedProxies(s.cfg.TrustedProxies); err != nil {
+		s.log.Error("TRUSTED_PROXIES inválida", "error", err)
+		_ = r.SetTrustedProxies(nil)
+	}
 
 	r.Use(
 		httpx.RequestIDMiddleware(),
@@ -53,6 +104,7 @@ func (s *Server) Handler() http.Handler {
 
 	v1 := r.Group("/api/v1")
 	v1.GET("/health", s.health)
+	s.registerAuthRoutes(v1)
 
 	return r
 }
