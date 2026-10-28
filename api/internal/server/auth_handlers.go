@@ -108,6 +108,11 @@ func (s *Server) fail(c *gin.Context, err error) {
 
 func bind(c *gin.Context, dst any) bool {
 	if err := c.ShouldBindJSON(dst); err != nil {
+		var tooLarge *http.MaxBytesError
+		if errors.As(err, &tooLarge) {
+			httpx.Abort(c, httpx.ErrTooLarge)
+			return false
+		}
 		httpx.Abort(c, httpx.NewError(http.StatusBadRequest, "BAD_REQUEST", "JSON malformado"))
 		return false
 	}

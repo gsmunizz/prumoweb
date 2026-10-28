@@ -17,6 +17,7 @@ import (
 	"github.com/gsmunizz/prumoweb/api/internal/httpx"
 	"github.com/gsmunizz/prumoweb/api/internal/mail"
 	"github.com/gsmunizz/prumoweb/api/internal/store"
+	"github.com/gsmunizz/prumoweb/api/internal/syncer"
 )
 
 type Server struct {
@@ -26,6 +27,8 @@ type Server struct {
 	app    *pgxpool.Pool
 	signer *auth.Signer
 	auth   *auth.Service
+	sync   *syncer.Service
+	pushes *pushLimiter
 	now    func() time.Time
 }
 
@@ -48,7 +51,10 @@ func New(cfg config.Config, log *slog.Logger, app, authPool *pgxpool.Pool) (*Ser
 	svc.SetGoogle(auth.GoogleConfig{
 		ClientID: cfg.GoogleClientID, ClientSecret: cfg.GoogleClientSecret, RedirectURL: cfg.GoogleRedirectURL,
 	})
-	return &Server{cfg: cfg, log: log, app: app, signer: signer, auth: svc, now: time.Now}, nil
+	return &Server{
+		cfg: cfg, log: log, app: app, signer: signer, auth: svc, now: time.Now,
+		sync: syncer.New(app), pushes: newPushLimiter(syncPushesPerMinute),
+	}, nil
 }
 
 // SetMailer troca o remetente de e-mails; existe para os testes.
@@ -61,6 +67,7 @@ func (s *Server) Wait() { s.auth.Wait() }
 func (s *Server) SetClock(now func() time.Time) {
 	s.now = now
 	s.auth.SetClock(now)
+	s.sync.SetClock(now)
 }
 
 func newSigner(cfg config.Config, log *slog.Logger) (*auth.Signer, error) {
@@ -110,7 +117,7 @@ func (s *Server) Handler() http.Handler {
 		httpx.LoggerMiddleware(s.log),
 		httpx.Recovery(s.log),
 		httpx.SecurityHeaders(s.cfg.IsProduction()),
-		httpx.BodyLimit(1<<20), // 1 MB; o sync/push terá 5 MB
+		s.bodyLimit,
 	)
 	r.NoRoute(func(c *gin.Context) { httpx.Abort(c, httpx.ErrNotFound) })
 	r.NoMethod(func(c *gin.Context) {
@@ -120,6 +127,7 @@ func (s *Server) Handler() http.Handler {
 	v1 := r.Group("/api/v1")
 	v1.GET("/health", s.health)
 	s.registerAuthRoutes(v1)
+	s.registerSyncRoutes(v1)
 
 	return r
 }
