@@ -60,8 +60,8 @@ jobs:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v6
         with:
-          # Último patch do 1.25, para o govulncheck não acusar a biblioteca padrão.
-          go-version: "1.25.x"
+          # Último patch do 1.26: os avisos do govulncheck sobre a biblioteca padrão só têm correção nele.
+          go-version: "1.26.x"
           check-latest: true
           cache-dependency-path: api/go.sum
 
@@ -73,10 +73,10 @@ jobs:
 
       - uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.5.0
+          version: v2.15.0
           working-directory: api
       - name: govulncheck
-        run: go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
+        run: go run golang.org/x/vuln/cmd/govulncheck@v1.9.0 ./...
 
       - name: Papéis e migrações no Postgres
         run: |

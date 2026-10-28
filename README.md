@@ -18,7 +18,7 @@ As regras de negócio têm códigos (por exemplo `TRX-04`, `PER-06`) definidos n
 
 ## Rodando localmente
 
-Requisitos: Docker, Go 1.25+, Node 22+ e, para criar migrações, o CLI [`migrate`](https://github.com/golang-migrate/migrate/tree/master/cmd/migrate).
+Requisitos: Docker, Go 1.26+, Node 22+ e, para criar migrações, o CLI [`migrate`](https://github.com/golang-migrate/migrate/tree/master/cmd/migrate).
 
 ```sh
 # 1. Banco e migrações
