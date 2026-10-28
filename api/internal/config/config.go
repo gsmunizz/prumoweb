@@ -22,6 +22,17 @@ type Config struct {
 	RegistrationMode string
 	AllowedEmails    []string
 	Version          string
+	// AuthSigningKey é a semente Ed25519 (32 bytes em base64) que assina os tokens de acesso,
+	// e AuthSigningKeyID o kid dela. Gere com `go run ./cmd/keygen`. Em desenvolvimento, sem
+	// semente, a API usa uma chave temporária (os tokens morrem a cada reinício).
+	AuthSigningKey   string
+	AuthSigningKeyID string
+	// AuthPreviousKeys são chaves públicas anteriores ainda aceitas na validação durante uma
+	// rotação, no formato "kid:base64,kid2:base64" (AUT-12).
+	AuthPreviousKeys []string
+	// TrustedProxies são os CIDRs dos proxies à frente da API cujo X-Forwarded-For vale.
+	// Sem isso, o IP visto é o da conexão, e os limites de login (AUT-11) contam o proxy.
+	TrustedProxies []string
 }
 
 func Load() (Config, error) {
@@ -34,6 +45,10 @@ func Load() (Config, error) {
 		RegistrationMode: getenv("REGISTRATION_MODE", "invite"),
 		AllowedEmails:    splitList(os.Getenv("ALLOWED_EMAILS")),
 		Version:          getenv("PRUMO_VERSION", "dev"),
+		AuthSigningKey:   os.Getenv("AUTH_SIGNING_KEY"),
+		AuthSigningKeyID: getenv("AUTH_SIGNING_KEY_ID", "k1"),
+		AuthPreviousKeys: splitCSV(os.Getenv("AUTH_PREVIOUS_PUBLIC_KEYS")),
+		TrustedProxies:   splitCSV(os.Getenv("TRUSTED_PROXIES")),
 	}
 
 	var errs []error
@@ -54,6 +69,9 @@ func Load() (Config, error) {
 	if c.Env != "development" && c.Env != "production" {
 		errs = append(errs, fmt.Errorf("PRUMO_ENV inválido: %q", c.Env))
 	}
+	if c.IsProduction() && c.AuthSigningKey == "" {
+		errs = append(errs, errors.New("AUTH_SIGNING_KEY é obrigatória em produção"))
+	}
 	return c, errors.Join(errs...)
 }
 
@@ -64,6 +82,16 @@ func getenv(key, fallback string) string {
 		return v
 	}
 	return fallback
+}
+
+func splitCSV(s string) []string {
+	var out []string
+	for _, item := range strings.Split(s, ",") {
+		if item = strings.TrimSpace(item); item != "" {
+			out = append(out, item)
+		}
+	}
+	return out
 }
 
 func splitList(s string) []string {
