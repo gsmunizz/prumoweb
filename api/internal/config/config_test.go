@@ -54,6 +54,11 @@ func TestLoadProductionRequiresSigningKey(t *testing.T) {
 		t.Fatalf("produção sem chave deveria falhar, veio %v", err)
 	}
 	t.Setenv("AUTH_SIGNING_KEY", "c2VtZW50ZQ==")
+	t.Setenv("RESEND_API_KEY", "")
+	if _, err := Load(); err == nil || !strings.Contains(err.Error(), "RESEND_API_KEY") {
+		t.Fatalf("produção sem chave do Resend deveria falhar, veio %v", err)
+	}
+	t.Setenv("RESEND_API_KEY", "re_chave_de_teste")
 	if _, err := Load(); err != nil {
 		t.Fatal(err)
 	}

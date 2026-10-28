@@ -15,6 +15,7 @@ import (
 	"github.com/gsmunizz/prumoweb/api/internal/auth"
 	"github.com/gsmunizz/prumoweb/api/internal/config"
 	"github.com/gsmunizz/prumoweb/api/internal/httpx"
+	"github.com/gsmunizz/prumoweb/api/internal/mail"
 	"github.com/gsmunizz/prumoweb/api/internal/store"
 )
 
@@ -33,14 +34,25 @@ func New(cfg config.Config, log *slog.Logger, app, authPool *pgxpool.Pool) (*Ser
 	if err != nil {
 		return nil, err
 	}
+	var sender mail.Sender = mail.Log{Logger: log}
+	if cfg.ResendAPIKey != "" {
+		sender = &mail.Resend{APIKey: cfg.ResendAPIKey, From: cfg.MailFrom}
+	}
 	svc, err := auth.NewService(authPool, signer, auth.Options{
 		RegistrationMode: cfg.RegistrationMode, AllowedEmails: cfg.AllowedEmails,
+		AppOrigin: cfg.AppOrigin, Mail: sender,
 	})
 	if err != nil {
 		return nil, err
 	}
 	return &Server{cfg: cfg, log: log, app: app, signer: signer, auth: svc, now: time.Now}, nil
 }
+
+// SetMailer troca o remetente de e-mails; existe para os testes.
+func (s *Server) SetMailer(m mail.Sender) { s.auth.SetMailer(m) }
+
+// Wait espera os e-mails em andamento; chamado no encerramento da API.
+func (s *Server) Wait() { s.auth.Wait() }
 
 // SetClock troca o relógio da API e do serviço de autenticação; existe para os testes.
 func (s *Server) SetClock(now func() time.Time) {

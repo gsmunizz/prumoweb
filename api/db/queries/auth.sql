@@ -89,3 +89,53 @@ VALUES (sqlc.arg(id), sqlc.arg(user_id), sqlc.arg(name), sqlc.arg(type), 0, sqlc
 -- name: CreateCategory :exec
 INSERT INTO categories (id, user_id, name, type, icon, color, sort_order, created_at, updated_at)
 VALUES (sqlc.arg(id), sqlc.arg(user_id), sqlc.arg(name), sqlc.arg(type), sqlc.arg(icon), sqlc.arg(color), sqlc.arg(sort_order), sqlc.arg(now), sqlc.arg(now));
+
+-- Links por e-mail (AUT-07, AUT-25, AUT-28). Só o SHA-256 do token vai ao banco.
+-- name: CreateAuthToken :exec
+INSERT INTO auth_tokens (user_id, purpose, token_hash, new_email, expires_at)
+VALUES (sqlc.arg(user_id), sqlc.arg(purpose), sqlc.arg(token_hash), sqlc.narg(new_email), sqlc.arg(expires_at));
+
+-- Um pedido novo invalida os links anteriores do mesmo tipo.
+-- name: InvalidateAuthTokens :exec
+UPDATE auth_tokens SET used_at = sqlc.arg(now)
+WHERE user_id = sqlc.arg(user_id) AND purpose = sqlc.arg(purpose) AND used_at IS NULL;
+
+-- Consumo atômico: o UPDATE só acerta um link ainda não usado e dentro do prazo, então
+-- duas requisições com o mesmo link nunca passam as duas (uso único).
+-- name: ConsumeAuthToken :one
+UPDATE auth_tokens SET used_at = sqlc.arg(now)
+WHERE token_hash = sqlc.arg(token_hash) AND purpose = sqlc.arg(purpose)
+  AND used_at IS NULL AND expires_at > sqlc.arg(now)
+RETURNING *;
+
+-- name: MarkEmailVerified :exec
+UPDATE users SET email_verified_at = COALESCE(email_verified_at, sqlc.arg(now)), updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id);
+
+-- name: SetPasswordHash :exec
+UPDATE users SET password_hash = sqlc.arg(password_hash), updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id);
+
+-- O endereço novo foi confirmado por link, então já nasce verificado.
+-- name: SetUserEmail :exec
+UPDATE users SET email = sqlc.arg(email), email_verified_at = sqlc.arg(now), updated_at = sqlc.arg(now)
+WHERE id = sqlc.arg(id);
+
+-- name: RevokeAllSessions :execrows
+UPDATE sessions SET revoked_at = sqlc.arg(now)
+WHERE user_id = sqlc.arg(user_id) AND revoked_at IS NULL;
+
+-- name: SetSessionReauth :exec
+UPDATE sessions SET reauth_at = sqlc.arg(now) WHERE id = sqlc.arg(id);
+
+-- Limites por usuário (reenvio de verificação, troca de e-mail, falhas de reautenticação).
+-- name: CountUserEvents :one
+SELECT count(*)::int AS events, min(created_at)::timestamptz AS oldest
+FROM security_events
+WHERE user_id = sqlc.arg(user_id) AND kind = sqlc.arg(kind) AND created_at > sqlc.arg(since);
+
+-- Limite de pedidos de redefinição por e-mail (AUT-25); vale também para e-mails sem conta.
+-- name: CountEventsByEmailHash :one
+SELECT count(*)::int AS events, min(created_at)::timestamptz AS oldest
+FROM security_events
+WHERE kind = sqlc.arg(kind) AND metadata->>'email_hash' = sqlc.arg(email_hash)::text AND created_at > sqlc.arg(since);
