@@ -20,6 +20,10 @@ const paths: Record<string, string> = {
   undo: 'M9 14 4 9l5-5M4 9h10.500a5.5 5.5 0 0 1 0 11H11',
   gift: 'M4 10h16v11H4zM2 7h20v3H2zM12 7v14M12 7S10 3 7.5 3a2 2 0 0 0 0 4M12 7s2-4 4.5-4a2 2 0 0 1 0 4',
   wallet: 'M20 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-4a2 2 0 0 0 0 4h4v4a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5',
+  bank: 'M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7M12 2l9 5H3z',
+  piggy: 'M19 9c1 0 2 .5 2 2v2h-2l-1 2.5V19h-3v-2h-4v2H8v-3a6 6 0 0 1 1-11h4a6 6 0 0 1 6 4zM16 10h.01',
+  smartphone: 'M8.5 2h7A2.5 2.5 0 0 1 18 4.5v15a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 6 19.5v-15A2.5 2.5 0 0 1 8.5 2zM11 18h2',
+  'credit-card': 'M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10h18M7 15h3',
   tag: 'M20.6 13.4 13.4 20.600a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.600a2 2 0 0 1 0 2.800zM7.5 7.500h.01',
 }
 
@@ -36,3 +40,6 @@ export function CategoryIcon({ name, size = 20 }: { name: string | null | undefi
 export function tint(color: string): { color: string; background: string } {
   return { color, background: `color-mix(in srgb, ${color} 12%, transparent)` }
 }
+
+// Chaves disponíveis para o seletor de ícone das categorias.
+export const categoryIconKeys = ['utensils', 'shopping-cart', 'car', 'home', 'receipt', 'heart-pulse', 'graduation-cap', 'gamepad', 'shopping-bag', 'repeat', 'landmark', 'briefcase', 'laptop', 'trending-up', 'undo', 'gift', 'wallet', 'tag', 'circle-ellipsis']

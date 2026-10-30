@@ -1,5 +1,6 @@
 import { useSyncExternalStore } from 'react'
 import { db, wipeLocalData } from '../db'
+import type { EntityName, SyncedRecord } from '../db/types'
 import { getSession, restoreSession, subscribeSession } from '../lib/session'
 import { SyncEngine } from './engine'
 
@@ -68,14 +69,14 @@ async function run() {
 }
 
 // Grava no IndexedDB e agenda o envio. É por aqui que a interface escreve dados.
-export async function saveRecord(...args: Parameters<SyncEngine['write']>): Promise<void> {
-  await engine.write(...args)
+export async function saveRecord<T extends SyncedRecord>(entity: EntityName, record: T): Promise<void> {
+  await engine.write(entity, record)
   await refreshCounters()
   requestSync()
 }
 
-export async function deleteRecord(...args: Parameters<SyncEngine['remove']>): Promise<void> {
-  await engine.remove(...args)
+export async function deleteRecord(entity: EntityName, id: string): Promise<void> {
+  await engine.remove(entity, id)
   await refreshCounters()
   requestSync()
 }
