@@ -135,7 +135,7 @@ function Row({ t, category, account }: { t: Transaction; category?: { name: stri
   const title = t.description || category?.name || (internal ? 'Movimentação interna' : 'Sem descrição')
   return (
     <li>
-      <div className="flex min-h-11 items-center gap-3 py-3">
+      <Link to="/transacoes/$id" params={{ id: t.id }} className="flex min-h-11 items-center gap-3 py-3">
         <span className="relative grid size-11 shrink-0 place-items-center rounded-[14px]" style={tint(category?.color ?? '#667085')}>
           <CategoryIcon name={category?.icon} />
           {/* O sentido não depende só da cor: o selo traz a seta de entrada ou saída. */}
@@ -156,7 +156,7 @@ function Row({ t, category, account }: { t: Transaction; category?: { name: stri
           </span>
           <span className="text-xs text-ink-3">{income ? 'Receita' : 'Despesa'}</span>
         </span>
-      </div>
+      </Link>
     </li>
   )
 }

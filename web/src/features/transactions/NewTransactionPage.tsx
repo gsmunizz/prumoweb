@@ -1,32 +1,64 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Navigate, useNavigate } from '@tanstack/react-router'
+import { Navigate, useNavigate, useParams } from '@tanstack/react-router'
 import type { EntryType, Transaction } from '../../db/types'
 import { today } from '../../lib/dates'
 import { CategoryIcon, tint } from '../../lib/icons'
 import { formatCents } from '../../lib/money'
+import { db } from '../../db'
 import { useSession } from '../../lib/session'
 import { useLive } from '../../lib/useLive'
 import { saveRecord } from '../../sync'
 import { activeAccounts, activeCategories } from './queries'
+import { isInternal } from './summary'
 
 const MAX_DIGITS = 9
 const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '00', '0', '⌫']
 
+export const NewTransactionPage = () => <TransactionForm />
+
+// Edição: mesma tela do lançamento, preenchida com o registro existente.
+export function EditTransactionPage() {
+  const { id = '' } = useParams({ strict: false })
+  const session = useSession()
+  const navigate = useNavigate()
+  // null = não existe (ou foi excluída); undefined = ainda carregando.
+  const found = useLive(async () => (await db.transactions.get(id)) ?? null, [id])
+  if (session.status === 'anonymous') return <Navigate to="/login" replace />
+  if (found === undefined) {
+    return (
+      <p role="status" className="grid min-h-dvh place-items-center text-sm text-ink-3">
+        Carregando…
+      </p>
+    )
+  }
+  if (found === null || found.deleted_at || isInternal(found)) {
+    return (
+      <main className="mx-auto flex min-h-dvh max-w-md flex-col items-center justify-center gap-3 px-5 text-center">
+        <p className="text-base font-extrabold">{found && isInternal(found) ? 'Esta movimentação não pode ser editada aqui' : 'Transação não encontrada'}</p>
+        <button onClick={() => void navigate({ to: '/transacoes' })} className="h-12 rounded-2xl bg-cobalt px-6 font-extrabold text-white">
+          Voltar às transações
+        </button>
+      </main>
+    )
+  }
+  return <TransactionForm existing={found} />
+}
+
 // Lançamento rápido (design "03 · Nova transação"): só valor e categoria são obrigatórios;
 // conta e data já vêm preenchidas.
-export function NewTransactionPage() {
+function TransactionForm({ existing }: { existing?: Transaction }) {
   const session = useSession()
   const navigate = useNavigate()
   const accounts = useLive(activeAccounts, [])
   const allCategories = useLive(activeCategories, [])
 
-  const [type, setType] = useState<EntryType>('expense')
-  const [digits, setDigits] = useState('')
-  const [categoryId, setCategoryId] = useState<string | null>(null)
-  const [accountId, setAccountId] = useState<string | null>(null)
-  const [date, setDate] = useState(() => today())
-  const [description, setDescription] = useState('')
-  const [notes, setNotes] = useState<string | null>(null)
+  const [type, setType] = useState<EntryType>(existing?.type ?? 'expense')
+  const [digits, setDigits] = useState(existing ? String(existing.amount_cents) : '')
+  const [categoryId, setCategoryId] = useState<string | null>(existing?.category_id ?? null)
+  const [accountId, setAccountId] = useState<string | null>(existing?.account_id ?? null)
+  const [date, setDate] = useState(() => existing?.date ?? today())
+  const [description, setDescription] = useState(existing?.description ?? '')
+  const [notes, setNotes] = useState<string | null>(existing?.notes ?? null)
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -57,8 +89,9 @@ export function NewTransactionPage() {
     setSaving(true)
     const now = new Date().toISOString()
     const record: Transaction = {
-      id: crypto.randomUUID(),
-      created_at: now,
+      ...(existing ?? { transfer_id: null, investment_movement_id: null }),
+      id: existing?.id ?? crypto.randomUUID(),
+      created_at: existing?.created_at ?? now,
       updated_at: now,
       deleted_at: null,
       type,
@@ -68,12 +101,10 @@ export function NewTransactionPage() {
       account_id: accountId,
       category_id: categoryId,
       notes: notes?.trim() || null,
-      transfer_id: null,
-      investment_movement_id: null,
     }
     try {
       await saveRecord('transactions', record)
-      await navigate({ to: '/transacoes' })
+      await navigate(existing ? { to: '/transacoes/$id', params: { id: existing.id } } : { to: '/transacoes' })
     } catch {
       setError('Não foi possível salvar neste aparelho. Tente de novo.')
       setSaving(false)
@@ -85,12 +116,12 @@ export function NewTransactionPage() {
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-surface">
       <header className="flex items-center justify-between px-3 pb-1 pt-[calc(0.75rem+env(safe-area-inset-top))]">
-        <button onClick={() => void navigate({ to: '/transacoes' })} aria-label="Fechar" className="grid size-11 place-items-center rounded-[14px]">
+        <button onClick={() => void navigate(existing ? { to: '/transacoes/$id', params: { id: existing.id } } : { to: '/transacoes' })} aria-label="Fechar" className="grid size-11 place-items-center rounded-[14px]">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
             <path d="M18 6 6 18M6 6l12 12" />
           </svg>
         </button>
-        <h1 className="text-base font-extrabold">Nova transação</h1>
+        <h1 className="text-base font-extrabold">{existing ? 'Editar transação' : 'Nova transação'}</h1>
         <span className="w-11" />
       </header>
 
@@ -200,7 +231,7 @@ export function NewTransactionPage() {
           disabled={saving}
           className={`flex h-14 items-center justify-center gap-2 rounded-2xl text-base font-extrabold text-white disabled:opacity-60 ${expense ? 'bg-cobalt' : 'bg-income'}`}
         >
-          Salvar {expense ? 'despesa' : 'receita'}
+          {existing ? 'Salvar alterações' : `Salvar ${expense ? 'despesa' : 'receita'}`}
         </button>
       </div>
     </div>
