@@ -9,7 +9,8 @@ import { RegisterPage } from './pages/auth/RegisterPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { ConfirmEmailPage, VerifyEmailPage } from './pages/auth/TokenPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
-import { NewTransactionPage } from './features/transactions/NewTransactionPage'
+import { EditTransactionPage, NewTransactionPage } from './features/transactions/NewTransactionPage'
+import { TransactionDetailPage } from './features/transactions/TransactionDetail'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { MaisPage } from './pages/MaisPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
@@ -27,12 +28,14 @@ const rootRoute = createRootRoute({
 const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', component: AppShell })
 const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: DashboardPage })
 const transacoesRoute = createRoute({ getParentRoute: () => appRoute, path: '/transacoes', component: TransactionsPage })
+const detalheRoute = createRoute({ getParentRoute: () => appRoute, path: '/transacoes/$id', component: TransactionDetailPage })
 const calendarioRoute = createRoute({ getParentRoute: () => appRoute, path: '/calendario', component: () => <PlaceholderPage title="Calendário" /> })
 const investimentosRoute = createRoute({ getParentRoute: () => appRoute, path: '/investimentos', component: () => <PlaceholderPage title="Investimentos" /> })
 const maisRoute = createRoute({ getParentRoute: () => appRoute, path: '/mais', component: MaisPage })
 
 // Lançamento em tela cheia, sem a barra de navegação.
 const novaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/transacoes/nova', component: NewTransactionPage })
+const editarRoute = createRoute({ getParentRoute: () => rootRoute, path: '/transacoes/$id/editar', component: EditTransactionPage })
 
 // Telas para quem ainda não entrou; quem já tem sessão vai direto para o início.
 function Guest() {
@@ -53,8 +56,9 @@ const confirmRoute = createRoute({ getParentRoute: () => rootRoute, path: '/conf
 const callbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: CallbackPage })
 
 const routeTree = rootRoute.addChildren([
-  appRoute.addChildren([homeRoute, transacoesRoute, calendarioRoute, investimentosRoute, maisRoute]),
+  appRoute.addChildren([homeRoute, transacoesRoute, detalheRoute, calendarioRoute, investimentosRoute, maisRoute]),
   novaRoute,
+  editarRoute,
   guestRoute.addChildren([loginRoute, registerRoute, forgotRoute]),
   resetRoute,
   verifyRoute,
