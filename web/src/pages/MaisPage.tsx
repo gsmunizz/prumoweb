@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { db } from '../db'
 import { logout, useSession } from '../lib/session'
+import { useSyncStatus } from '../sync'
 
 // "Mais" do design (perfil, atalhos, configurações). Nesta etapa: perfil e sair.
 export function MaisPage() {
   const session = useSession()
+  const sync = useSyncStatus()
   const [confirming, setConfirming] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
 
@@ -31,7 +33,7 @@ export function MaisPage() {
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate text-base font-extrabold">{email}</p>
-          <p className="text-[13px] text-ink-2">{session.offline ? 'Sem conexão' : 'Conectado'}</p>
+          <p className="text-[13px] text-ink-2">{syncLabel(session.offline || sync.offline, sync)}</p>
         </div>
       </section>
 
@@ -58,4 +60,14 @@ export function MaisPage() {
       )}
     </main>
   )
+}
+
+function syncLabel(offline: boolean, s: ReturnType<typeof useSyncStatus>): string {
+  if (offline) return s.pending ? `Sem conexão · ${s.pending} para enviar` : 'Sem conexão'
+  if (s.state === 'syncing') return 'Sincronizando…'
+  if (s.state === 'error') return 'Não foi possível sincronizar. Tentando de novo.'
+  if (s.pending) return `${s.pending} para enviar`
+  if (!s.lastSyncedAt) return 'Conectado'
+  const min = Math.max(0, Math.round((Date.now() - new Date(s.lastSyncedAt).getTime()) / 60_000))
+  return min < 1 ? 'Sincronizado agora' : `Sincronizado há ${min} min`
 }
