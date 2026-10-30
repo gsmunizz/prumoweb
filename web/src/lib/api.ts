@@ -27,7 +27,38 @@ export class ApiError extends Error {
   }
 }
 
-export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise<T> {
+// A sessão (lib/session.ts) se registra aqui para o cliente anexar o token de acesso
+// e renová-lo uma vez quando a API responde 401.
+export interface AuthHook {
+  token(): string | null
+  refresh(): Promise<boolean>
+}
+
+let authHook: AuthHook | null = null
+export const setAuthHook = (hook: AuthHook | null) => {
+  authHook = hook
+}
+
+export interface ApiInit extends RequestInit {
+  // false nas rotas públicas e na própria renovação, que não carregam token nem repetem.
+  auth?: boolean
+}
+
+export async function apiFetch<T>(path: string, init: ApiInit = {}): Promise<T> {
+  const { auth = true, ...rest } = init
+  const send = () => {
+    const headers = new Headers(rest.headers)
+    const token = auth ? authHook?.token() : null
+    if (token) headers.set('Authorization', `Bearer ${token}`)
+    return request(path, { ...rest, headers })
+  }
+
+  let res = await send()
+  if (res.status === 401 && auth && authHook && (await authHook.refresh())) res = await send()
+  return parse<T>(res)
+}
+
+function request(path: string, init: RequestInit): Promise<Response> {
   const headers = new Headers(init.headers)
   headers.set('Accept', 'application/json')
   // Exigido pelas rotas que leem o cookie de sessão (AUT-17).
@@ -36,8 +67,11 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     headers.set('Content-Type', 'application/json')
   }
 
-  const res = await fetch(`${API_BASE}${path}`, { ...init, headers, credentials: 'same-origin' })
-  if (res.status === 204) return undefined as T
+  return fetch(`${API_BASE}${path}`, { ...init, headers, credentials: 'same-origin' })
+}
+
+async function parse<T>(res: Response): Promise<T> {
+  if (res.status === 204 || res.status === 202) return undefined as T
 
   const body: unknown = await res.json().catch(() => null)
   if (!res.ok) {
@@ -53,4 +87,4 @@ export interface Health {
   db: 'ok' | 'down'
 }
 
-export const getHealth = () => apiFetch<Health>('/health')
+export const getHealth = () => apiFetch<Health>('/health', { auth: false })
