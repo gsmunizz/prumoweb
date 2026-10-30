@@ -6,13 +6,13 @@ O app é local-first. A interface lê e grava só no banco local do navegador (I
 
 ## Estrutura
 
-| Pasta | O que tem |
-| --- | --- |
-| `web/` | PWA em React, TypeScript e Vite; Tailwind com os tokens do design system; Dexie (IndexedDB); TanStack Router e Query; vite-plugin-pwa |
-| `api/` | API em Go com Gin; Postgres via pgx e sqlc; migrações com golang-migrate |
-| `api/db/migrations/` | Esquema do banco, com Row Level Security em toda tabela financeira |
-| `api/db/queries/` | SQL das consultas; o sqlc gera `api/internal/store` a partir delas |
-| `docker-compose.yml` | Postgres 16, migrações e API para desenvolvimento |
+| Pasta                | O que tem                                                                                                                             |
+|----------------------|---------------------------------------------------------------------------------------------------------------------------------------|
+| `web/`               | PWA em React, TypeScript e Vite; Tailwind com os tokens do design system; Dexie (IndexedDB); TanStack Router e Query; vite-plugin-pwa |
+| `api/`               | API em Go com Gin; Postgres via pgx e sqlc; migrações com golang-migrate                                                              |
+| `api/db/migrations/` | Esquema do banco, com Row Level Security em toda tabela financeira                                                                    |
+| `api/db/queries/`    | SQL das consultas; o sqlc gera `api/internal/store` a partir delas                                                                    |
+| `docker-compose.yml` | Postgres 16, migrações e API para desenvolvimento                                                                                     |
 
 As regras de negócio têm códigos (por exemplo `TRX-04`, `PER-06`) definidos no documento "Prumo — Regras de negócio e rotas do backend". Código, testes e commits citam esses códigos.
 
@@ -54,11 +54,11 @@ O CI (`.github/workflows/ci.yml`) roda tudo isso em cada PR, com um Postgres de 
 
 A API conecta com três papéis diferentes, criados por `api/db/bootstrap.sql`:
 
-| Papel | Usado por | Pode |
-| --- | --- | --- |
-| `prumo_owner` | migrações | é dono das tabelas |
-| `prumo_app` | rotas de dados | tabelas financeiras, sempre sob RLS (`NOBYPASSRLS`) |
-| `prumo_auth` | módulo de autenticação | tabelas de login e sessão; só insere perfil, contas e categorias no cadastro |
+| Papel         | Usado por              | Pode                                                                         |
+|---------------|------------------------|------------------------------------------------------------------------------|
+| `prumo_owner` | migrações              | é dono das tabelas                                                           |
+| `prumo_app`   | rotas de dados         | tabelas financeiras, sempre sob RLS (`NOBYPASSRLS`)                          |
+| `prumo_auth`  | módulo de autenticação | tabelas de login e sessão; só insere perfil, contas e categorias no cadastro |
 
 Toda requisição autenticada roda numa transação com `SET LOCAL app.user_id` (`database.WithUser`), e as políticas de RLS só liberam linhas desse usuário. Se o código esquecer de definir o usuário, a consulta volta vazia em vez de vazar dados. Os testes em `api/internal/database/rls_test.go` provam isso contra o banco.
 
@@ -68,19 +68,19 @@ Valores em dinheiro são sempre centavos inteiros (`*_cents`). IDs são UUIDs ge
 
 A API tem autenticação própria (regras `AUT-*` do documento de regras). Rotas em `/api/v1`:
 
-| Rota | O que faz |
-| --- | --- |
-| `POST /auth/register` | cria usuário, perfil, 18 categorias padrão e a conta Carteira numa transação; abre a sessão |
-| `POST /auth/login` | e-mail e senha; no máximo 5 falhas em 15 min por e-mail + IP |
-| `POST /auth/refresh` | troca o refresh token do cookie por outro e emite um token de acesso |
-| `POST /auth/logout` | revoga a sessão e apaga o cookie |
-| `GET /auth/sessions`, `DELETE /auth/sessions[/{id}]` | lista e revoga sessões do próprio usuário |
-| `GET /me` | usuário e perfil |
-| `POST /auth/verify-email`, `POST /auth/verify-email/resend` | confirma o e-mail pelo link (24 h); reenvio limitado a 3 por hora |
-| `POST /auth/password/forgot`, `POST /auth/password/reset` | redefinição por link (1 h, uso único); `forgot` sempre responde 202; reset encerra todas as sessões |
-| `POST /auth/reauth` | confirma a senha por 5 minutos, exigido para trocar o e-mail (quem só tem Google usa `google/start?intent=reauth`) |
-| `PUT /me/password` | troca a senha (pede a atual) e encerra as outras sessões |
-| `POST /me/email`, `POST /me/email/confirm` | troca de e-mail: link ao endereço novo, aviso ao antigo; exige e-mail verificado e reautenticação |
+| Rota                                                        | O que faz                                                                                                          |
+|-------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------|
+| `POST /auth/register`                                       | cria usuário, perfil, 18 categorias padrão e a conta Carteira numa transação; abre a sessão                        |
+| `POST /auth/login`                                          | e-mail e senha; no máximo 5 falhas em 15 min por e-mail + IP                                                       |
+| `POST /auth/refresh`                                        | troca o refresh token do cookie por outro e emite um token de acesso                                               |
+| `POST /auth/logout`                                         | revoga a sessão e apaga o cookie                                                                                   |
+| `GET /auth/sessions`, `DELETE /auth/sessions[/{id}]`        | lista e revoga sessões do próprio usuário                                                                          |
+| `GET /me`                                                   | usuário e perfil                                                                                                   |
+| `POST /auth/verify-email`, `POST /auth/verify-email/resend` | confirma o e-mail pelo link (24 h); reenvio limitado a 3 por hora                                                  |
+| `POST /auth/password/forgot`, `POST /auth/password/reset`   | redefinição por link (1 h, uso único); `forgot` sempre responde 202; reset encerra todas as sessões                |
+| `POST /auth/reauth`                                         | confirma a senha por 5 minutos, exigido para trocar o e-mail (quem só tem Google usa `google/start?intent=reauth`) |
+| `PUT /me/password`                                          | troca a senha (pede a atual) e encerra as outras sessões                                                           |
+| `POST /me/email`, `POST /me/email/confirm`                  | troca de e-mail: link ao endereço novo, aviso ao antigo; exige e-mail verificado e reautenticação                  |
 
 - **Senha:** argon2id (64 MiB, t=3, p=1), 10 a 128 caracteres, fora das senhas mais comuns.
 - **Token de acesso:** JWT Ed25519 de 15 minutos, guardado só em memória no cliente.
@@ -97,10 +97,10 @@ Antes de subir em produção, gere a chave de assinatura com `go run ./cmd/keyge
 
 O app grava só no IndexedDB e uma fila sincroniza com a API (regras `SYN-*`). Duas rotas, ambas com token de acesso:
 
-| Rota | O que faz |
-| --- | --- |
-| `POST /sync/push` | `{ device_id, ops: [{ op_id, entity, id, updated_at, data }] }`, até 500 operações e 5 MB; 60 pushes por minuto por usuário. Devolve `{ results: [{ op_id, status, code?, details?, current? }], server_time }` |
-| `GET /sync/pull?since=0&limit=1000` | `{ changes: { <entidade>: [registro] }, next_since, has_more, server_time }`, com todas as sete entidades sempre presentes, inclusive registros excluídos |
+| Rota                                | O que faz                                                                                                                                                                                                       |
+|-------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `POST /sync/push`                   | `{ device_id, ops: [{ op_id, entity, id, updated_at, data }] }`, até 500 operações e 5 MB; 60 pushes por minuto por usuário. Devolve `{ results: [{ op_id, status, code?, details?, current? }], server_time }` |
+| `GET /sync/pull?since=0&limit=1000` | `{ changes: { <entidade>: [registro] }, next_since, has_more, server_time }`, com todas as sete entidades sempre presentes, inclusive registros excluídos                                                       |
 
 - **Entidades:** `profile`, `accounts`, `categories`, `transactions`, `investments`, `investment_movements`, `investment_snapshots`. `data` leva o registro inteiro (a escrita nunca é parcial) e excluir é a mesma operação com `deleted_at` preenchido. O formato do pull é o do campo `data`, mais `created_at`, `updated_at`, `deleted_at` e `server_version`.
 - **Last-write-wins:** vence o maior `updated_at`; empate fica com o servidor. Um `updated_at` mais de 5 minutos no futuro vira a hora do servidor (GER-05). Resultado por operação: `applied`, `stale` (com o registro do servidor em `current`) ou `rejected` (com `code` e `details`). Reenviar um lote não duplica nada: o id é do cliente.

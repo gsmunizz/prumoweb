@@ -8,9 +8,9 @@ import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { ConfirmEmailPage, VerifyEmailPage } from './pages/auth/TokenPage'
+import { DashboardPage } from './features/dashboard/DashboardPage'
 import { NewTransactionPage } from './features/transactions/NewTransactionPage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
-import { HomePage } from './pages/HomePage'
 import { MaisPage } from './pages/MaisPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
@@ -25,7 +25,7 @@ const rootRoute = createRootRoute({
 
 // Telas autenticadas, dentro do shell com a barra de navegação.
 const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', component: AppShell })
-const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: HomePage })
+const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: DashboardPage })
 const transacoesRoute = createRoute({ getParentRoute: () => appRoute, path: '/transacoes', component: TransactionsPage })
 const calendarioRoute = createRoute({ getParentRoute: () => appRoute, path: '/calendario', component: () => <PlaceholderPage title="Calendário" /> })
 const investimentosRoute = createRoute({ getParentRoute: () => appRoute, path: '/investimentos', component: () => <PlaceholderPage title="Investimentos" /> })
