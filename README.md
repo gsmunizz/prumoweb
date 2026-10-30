@@ -93,6 +93,23 @@ A API tem autenticação própria (regras `AUT-*` do documento de regras). Rotas
 
 Antes de subir em produção, gere a chave de assinatura com `go run ./cmd/keygen` e guarde `AUTH_SIGNING_KEY` no cofre do provedor. Veja `api/.env.example` para a rotação de chave e `TRUSTED_PROXIES`.
 
+## Sync
+
+O app grava só no IndexedDB e uma fila sincroniza com a API (regras `SYN-*`). Duas rotas, ambas com token de acesso:
+
+| Rota | O que faz |
+| --- | --- |
+| `POST /sync/push` | `{ device_id, ops: [{ op_id, entity, id, updated_at, data }] }`, até 500 operações e 5 MB; 60 pushes por minuto por usuário. Devolve `{ results: [{ op_id, status, code?, details?, current? }], server_time }` |
+| `GET /sync/pull?since=0&limit=1000` | `{ changes: { <entidade>: [registro] }, next_since, has_more, server_time }`, com todas as sete entidades sempre presentes, inclusive registros excluídos |
+
+- **Entidades:** `profile`, `accounts`, `categories`, `transactions`, `investments`, `investment_movements`, `investment_snapshots`. `data` leva o registro inteiro (a escrita nunca é parcial) e excluir é a mesma operação com `deleted_at` preenchido. O formato do pull é o do campo `data`, mais `created_at`, `updated_at`, `deleted_at` e `server_version`.
+- **Last-write-wins:** vence o maior `updated_at`; empate fica com o servidor. Um `updated_at` mais de 5 minutos no futuro vira a hora do servidor (GER-05). Resultado por operação: `applied`, `stale` (com o registro do servidor em `current`) ou `rejected` (com `code` e `details`). Reenviar um lote não duplica nada: o id é do cliente.
+- **Ordem do lote:** as operações valem em sequência, então "mover as transações e excluir a conta" cabe num lote só. Cada operação roda num savepoint, e uma recusa não derruba as outras.
+- **Regras entre registros** (transferências, aporte ligado a conta, posição do ativo, conta e categoria em uso) são conferidas ao fim do lote; se falham, as operações envolvidas viram `rejected` e o resto do lote é refeito sem elas.
+- **Pais excluídos:** um registro que aponta para conta, categoria ou ativo excluído não é recusado; o servidor restaura o pai (com `updated_at` maior que o da exclusão) e o devolve no próximo pull (GER-08). Excluir um ativo exclui seus movimentos e snapshots, mas não as transações de conta ligadas aos aportes (INV-06).
+- **Cursor:** `server_version` vem de uma sequência do Postgres, e o push de cada usuário roda sob um advisory lock, então as versões confirmam na ordem em que foram geradas e um pull nunca pula um registro. `next_since` é o maior `server_version` da página. Cursor menor que `sync_state.purged_through` responde `410 SYNC_RESET_REQUIRED` (SYN-09); a rotina diária que apaga excluídos de verdade (GER-07) ainda não existe.
+- **Snapshots:** o `id` é `UUID v5` do namespace `7d1c5b2e-4f3a-4a6b-9c8d-0e1f2a3b4c5d` com o nome `"<investment_id>:<AAAA-MM-DD>"`, igual no cliente e na API (INV-21). `quantity` dos movimentos trafega como texto decimal, com até 8 casas.
+
 ## Novas migrações e consultas
 
 ```sh

@@ -91,6 +91,8 @@ jobs:
         env:
           TEST_DATABASE_URL: postgres://prumo_app@localhost:5432/prumo?sslmode=disable
           TEST_AUTH_DATABASE_URL: postgres://prumo_auth@localhost:5432/prumo?sslmode=disable
+          # Só o teste do SYN-09 precisa dele, para simular a limpeza de excluídos.
+          TEST_OWNER_DATABASE_URL: postgres://prumo_owner@localhost:5432/prumo?sslmode=disable
         run: go test -race -count=1 ./...
 
       - name: Imagem Docker compila

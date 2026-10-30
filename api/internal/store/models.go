@@ -139,6 +139,11 @@ type Session struct {
 	RevokedAt       pgtype.Timestamptz `json:"revoked_at"`
 }
 
+type SyncState struct {
+	Singleton     bool  `json:"singleton"`
+	PurgedThrough int64 `json:"purged_through"`
+}
+
 type Transaction struct {
 	ID                   uuid.UUID          `json:"id"`
 	UserID               uuid.UUID          `json:"user_id"`
