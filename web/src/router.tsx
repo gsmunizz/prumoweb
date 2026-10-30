@@ -8,6 +8,8 @@ import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { ConfirmEmailPage, VerifyEmailPage } from './pages/auth/TokenPage'
+import { AccountsPage } from './features/accounts/AccountsPage'
+import { CategoriesPage } from './features/categories/CategoriesPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { EditTransactionPage, NewTransactionPage } from './features/transactions/NewTransactionPage'
 import { TransactionDetailPage } from './features/transactions/TransactionDetail'
@@ -32,6 +34,8 @@ const detalheRoute = createRoute({ getParentRoute: () => appRoute, path: '/trans
 const calendarioRoute = createRoute({ getParentRoute: () => appRoute, path: '/calendario', component: () => <PlaceholderPage title="Calendário" /> })
 const investimentosRoute = createRoute({ getParentRoute: () => appRoute, path: '/investimentos', component: () => <PlaceholderPage title="Investimentos" /> })
 const maisRoute = createRoute({ getParentRoute: () => appRoute, path: '/mais', component: MaisPage })
+const contasRoute = createRoute({ getParentRoute: () => appRoute, path: '/mais/contas', component: AccountsPage })
+const categoriasRoute = createRoute({ getParentRoute: () => appRoute, path: '/mais/categorias', component: CategoriesPage })
 
 // Lançamento em tela cheia, sem a barra de navegação.
 const novaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/transacoes/nova', component: NewTransactionPage })
@@ -56,7 +60,7 @@ const confirmRoute = createRoute({ getParentRoute: () => rootRoute, path: '/conf
 const callbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/auth/callback', component: CallbackPage })
 
 const routeTree = rootRoute.addChildren([
-  appRoute.addChildren([homeRoute, transacoesRoute, detalheRoute, calendarioRoute, investimentosRoute, maisRoute]),
+  appRoute.addChildren([homeRoute, transacoesRoute, detalheRoute, calendarioRoute, investimentosRoute, maisRoute, contasRoute, categoriasRoute]),
   novaRoute,
   editarRoute,
   guestRoute.addChildren([loginRoute, registerRoute, forgotRoute]),
