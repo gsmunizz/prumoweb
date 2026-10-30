@@ -8,6 +8,8 @@ import { LoginPage } from './pages/auth/LoginPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { ResetPasswordPage } from './pages/auth/ResetPasswordPage'
 import { ConfirmEmailPage, VerifyEmailPage } from './pages/auth/TokenPage'
+import { NewTransactionPage } from './features/transactions/NewTransactionPage'
+import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { HomePage } from './pages/HomePage'
 import { MaisPage } from './pages/MaisPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
@@ -24,10 +26,13 @@ const rootRoute = createRootRoute({
 // Telas autenticadas, dentro do shell com a barra de navegação.
 const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', component: AppShell })
 const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: HomePage })
-const transacoesRoute = createRoute({ getParentRoute: () => appRoute, path: '/transacoes', component: () => <PlaceholderPage title="Transações" /> })
+const transacoesRoute = createRoute({ getParentRoute: () => appRoute, path: '/transacoes', component: TransactionsPage })
 const calendarioRoute = createRoute({ getParentRoute: () => appRoute, path: '/calendario', component: () => <PlaceholderPage title="Calendário" /> })
 const investimentosRoute = createRoute({ getParentRoute: () => appRoute, path: '/investimentos', component: () => <PlaceholderPage title="Investimentos" /> })
 const maisRoute = createRoute({ getParentRoute: () => appRoute, path: '/mais', component: MaisPage })
+
+// Lançamento em tela cheia, sem a barra de navegação.
+const novaRoute = createRoute({ getParentRoute: () => rootRoute, path: '/transacoes/nova', component: NewTransactionPage })
 
 // Telas para quem ainda não entrou; quem já tem sessão vai direto para o início.
 function Guest() {
@@ -49,6 +54,7 @@ const callbackRoute = createRoute({ getParentRoute: () => rootRoute, path: '/aut
 
 const routeTree = rootRoute.addChildren([
   appRoute.addChildren([homeRoute, transacoesRoute, calendarioRoute, investimentosRoute, maisRoute]),
+  novaRoute,
   guestRoute.addChildren([loginRoute, registerRoute, forgotRoute]),
   resetRoute,
   verifyRoute,
