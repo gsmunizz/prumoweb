@@ -15,6 +15,7 @@ import { EditTransactionPage, NewTransactionPage } from './features/transactions
 import { TransactionDetailPage } from './features/transactions/TransactionDetail'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { MaisPage } from './pages/MaisPage'
+import { CalendarPage } from './features/calendar/CalendarPage'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 
 const rootRoute = createRootRoute({
@@ -31,7 +32,7 @@ const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', compo
 const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: DashboardPage })
 const transacoesRoute = createRoute({ getParentRoute: () => appRoute, path: '/transacoes', component: TransactionsPage })
 const detalheRoute = createRoute({ getParentRoute: () => appRoute, path: '/transacoes/$id', component: TransactionDetailPage })
-const calendarioRoute = createRoute({ getParentRoute: () => appRoute, path: '/calendario', component: () => <PlaceholderPage title="Calendário" /> })
+const calendarioRoute = createRoute({ getParentRoute: () => appRoute, path: '/calendario', component: CalendarPage })
 const investimentosRoute = createRoute({ getParentRoute: () => appRoute, path: '/investimentos', component: () => <PlaceholderPage title="Investimentos" /> })
 const maisRoute = createRoute({ getParentRoute: () => appRoute, path: '/mais', component: MaisPage })
 const contasRoute = createRoute({ getParentRoute: () => appRoute, path: '/mais/contas', component: AccountsPage })
