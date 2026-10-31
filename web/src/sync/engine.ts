@@ -51,7 +51,7 @@ export class SyncEngine {
   }
 
   // Grava o registro e a operação na mesma transação: ou os dois, ou nenhum (SYN-02).
-  async write(entity: EntityName, record: SyncedRecord): Promise<void> {
+  async write<T extends SyncedRecord>(entity: EntityName, record: T): Promise<void> {
     const table = this.db.table(entity) as Table
     await this.db.transaction('rw', table, this.db.outbox, async () => {
       await table.put(record)

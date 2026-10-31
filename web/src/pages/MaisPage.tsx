@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
 import { db } from '../db'
 import { logout, useSession } from '../lib/session'
 import { useSyncStatus } from '../sync'
@@ -37,6 +38,11 @@ export function MaisPage() {
         </div>
       </section>
 
+      <div className="grid grid-cols-2 gap-3">
+        <ShortcutCard to="/mais/contas" label="Contas" hint="Saldos e carteiras" />
+        <ShortcutCard to="/mais/categorias" label="Categorias" hint="Despesas e receitas" />
+      </div>
+
       {confirming === null ? (
         <button onClick={() => void ask()} className="h-14 rounded-2xl border border-line bg-surface text-base font-extrabold text-error">
           Sair
@@ -70,4 +76,13 @@ function syncLabel(offline: boolean, s: ReturnType<typeof useSyncStatus>): strin
   if (!s.lastSyncedAt) return 'Conectado'
   const min = Math.max(0, Math.round((Date.now() - new Date(s.lastSyncedAt).getTime()) / 60_000))
   return min < 1 ? 'Sincronizado agora' : `Sincronizado há ${min} min`
+}
+
+function ShortcutCard({ to, label, hint }: { to: '/mais/contas' | '/mais/categorias'; label: string; hint: string }) {
+  return (
+    <Link to={to} className="flex min-h-28 flex-col justify-end gap-0.5 rounded-card border border-line bg-surface p-4">
+      <span className="text-[15px] font-extrabold">{label}</span>
+      <span className="text-xs text-ink-2">{hint}</span>
+    </Link>
+  )
 }
