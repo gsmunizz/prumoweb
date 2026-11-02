@@ -8,6 +8,10 @@ export async function transactionsOfMonth(month: string): Promise<Transaction[]>
   return db.transactions.where('date').between(from, to, true, true).filter((t) => !t.deleted_at).toArray()
 }
 
+export async function transactionsInRange(from: string, to: string): Promise<Transaction[]> {
+  return db.transactions.where('date').between(from, to, true, true).filter((t) => !t.deleted_at).toArray()
+}
+
 export async function activeAccounts(): Promise<Account[]> {
   const list = await db.accounts.orderBy('sort_order').filter((a) => !a.deleted_at && !a.archived).toArray()
   return list

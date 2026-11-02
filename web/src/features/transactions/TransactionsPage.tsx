@@ -1,15 +1,16 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { Transaction } from '../../db/types'
-import { formatDay, monthLabel, shiftMonth, monthOf, today } from '../../lib/dates'
+import { formatDay, monthLabel, shiftMonth, today } from '../../lib/dates'
 import { CategoryIcon, tint } from '../../lib/icons'
 import { formatCents } from '../../lib/money'
 import { useLive } from '../../lib/useLive'
-import { activeAccounts, activeCategories, transactionsOfMonth } from './queries'
+import { FiltersSheet } from './FiltersSheet'
+import { activeCount, applyFilters, defaultFilters, periodLabel, rangeOf, type Filters, type TypeFilter } from './filters'
+import { activeAccounts, activeCategories, transactionsInRange } from './queries'
 import { groupByDay, isInternal, summarize } from './summary'
 
-type Tab = 'all' | 'income' | 'expense'
-const tabs: [Tab, string][] = [
+const tabs: [TypeFilter, string][] = [
   ['all', 'Todas'],
   ['income', 'Receitas'],
   ['expense', 'Despesas'],
@@ -18,21 +19,22 @@ const tabs: [Tab, string][] = [
 const signed = (cents: number) => `${cents >= 0 ? '+' : '−'}${formatCents(Math.abs(cents))}`
 
 export function TransactionsPage() {
-  const [month, setMonth] = useState(() => monthOf(today()))
-  const [tab, setTab] = useState<Tab>('all')
-  const [search, setSearch] = useState('')
+  const now = today()
+  const [filters, setFilters] = useState<Filters>(() => defaultFilters(now))
+  const [sheet, setSheet] = useState(false)
+  const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }))
 
-  const list = useLive(() => transactionsOfMonth(month), [month])
+  const [from, to] = rangeOf(filters.period, now)
+  const list = useLive(() => transactionsInRange(from, to), [from, to])
   const accounts = useLive(activeAccounts, [])
   const categories = useLive(activeCategories, [])
 
   const accountName = useMemo(() => new Map(accounts?.map((a) => [a.id, a.name])), [accounts])
   const categoryById = useMemo(() => new Map(categories?.map((c) => [c.id, c])), [categories])
 
-  const visible = useMemo(() => {
-    const q = search.trim().toLocaleLowerCase('pt-BR')
-    return (list ?? []).filter((t) => (tab === 'all' || t.type === tab) && (!q || (t.description ?? '').toLocaleLowerCase('pt-BR').includes(q)))
-  }, [list, tab, search])
+  const visible = useMemo(() => applyFilters(list ?? [], filters), [list, filters])
+  const filterCount = activeCount(filters, now)
+  const month = filters.period.kind === 'month' ? filters.period.month : null
 
   const totals = summarize(visible)
   const groups = groupByDay(visible)
@@ -41,6 +43,23 @@ export function TransactionsPage() {
     <main className="flex flex-col pb-24">
       <header className="flex items-center justify-between px-4 pb-3 pt-[calc(1.25rem+env(safe-area-inset-top))]">
         <h1 className="text-[26px] font-extrabold tracking-tight">Transações</h1>
+        <button
+          onClick={() => setSheet(true)}
+          aria-label={filterCount ? `Filtros, ${filterCount} ${filterCount === 1 ? 'ativo' : 'ativos'}` : 'Filtros'}
+          className="relative grid size-11 place-items-center rounded-field border border-line bg-surface"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12" />
+            <circle cx="16" cy="6" r="2" />
+            <circle cx="10" cy="12" r="2" />
+            <circle cx="18" cy="18" r="2" />
+          </svg>
+          {filterCount > 0 && (
+            <span aria-hidden="true" className="absolute -right-1 -top-1 grid h-[18px] min-w-[18px] place-items-center rounded-full border-2 border-bg bg-cobalt text-[11px] font-extrabold text-white">
+              {filterCount}
+            </span>
+          )}
+        </button>
       </header>
 
       <div className="px-4 pb-3">
@@ -50,8 +69,8 @@ export function TransactionsPage() {
         <input
           id="busca"
           type="search"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={filters.search}
+          onChange={(e) => set({ search: e.target.value })}
           placeholder="Buscar por descrição"
           className="h-12 w-full rounded-field border border-line bg-surface px-3.5 text-[15px] outline-none placeholder:text-ink-3 focus-visible:border-cobalt focus-visible:ring-2 focus-visible:ring-cobalt/30"
         />
@@ -62,24 +81,51 @@ export function TransactionsPage() {
           <button
             key={key}
             role="tab"
-            aria-selected={tab === key}
-            onClick={() => setTab(key)}
-            className={`h-10 rounded-full border px-4 text-sm font-bold ${tab === key ? 'border-ink bg-ink text-bg' : 'border-line bg-surface text-ink-2'}`}
+            aria-selected={filters.type === key}
+            onClick={() => set({ type: key })}
+            className={`h-10 rounded-full border px-4 text-sm font-bold ${filters.type === key ? 'border-ink bg-ink text-bg' : 'border-line bg-surface text-ink-2'}`}
           >
             {label}
           </button>
         ))}
       </div>
 
-      <div className="flex items-center justify-between px-4 pb-3">
-        <button onClick={() => setMonth(shiftMonth(month, -1))} aria-label="Mês anterior" className="grid size-11 place-items-center rounded-field border border-line bg-surface">
-          ‹
-        </button>
-        <span className="text-[15px] font-extrabold">{monthLabel(month)}</span>
-        <button onClick={() => setMonth(shiftMonth(month, 1))} aria-label="Próximo mês" className="grid size-11 place-items-center rounded-field border border-line bg-surface">
-          ›
-        </button>
-      </div>
+      {month ? (
+        <div className="flex items-center justify-between px-4 pb-3">
+          <button onClick={() => set({ period: { kind: 'month', month: shiftMonth(month, -1) } })} aria-label="Mês anterior" className="grid size-11 place-items-center rounded-field border border-line bg-surface">
+            ‹
+          </button>
+          <span className="text-[15px] font-extrabold">{monthLabel(month)}</span>
+          <button onClick={() => set({ period: { kind: 'month', month: shiftMonth(month, 1) } })} aria-label="Próximo mês" className="grid size-11 place-items-center rounded-field border border-line bg-surface">
+            ›
+          </button>
+        </div>
+      ) : (
+        <div className="flex px-4 pb-3">
+          <Chip onRemove={() => set({ period: defaultFilters(now).period })} removeLabel="Voltar para este mês">
+            {periodLabel(filters.period)}
+          </Chip>
+        </div>
+      )}
+      {(filters.categories.length > 0 || filters.accounts.length > 0 || filters.min !== null || filters.max !== null) && (
+        <div className="flex flex-wrap gap-2 px-4 pb-3">
+          {filters.categories.length > 0 && (
+            <Chip onRemove={() => set({ categories: [] })} removeLabel="Remover filtro de categoria">
+              {filters.categories.length === 1 ? (categoryById.get(filters.categories[0]!)?.name ?? '1 categoria') : `${filters.categories.length} categorias`}
+            </Chip>
+          )}
+          {filters.accounts.length > 0 && (
+            <Chip onRemove={() => set({ accounts: [] })} removeLabel="Remover filtro de conta">
+              {filters.accounts.length === 1 ? (accountName.get(filters.accounts[0]!) ?? '1 conta') : `${filters.accounts.length} contas`}
+            </Chip>
+          )}
+          {(filters.min !== null || filters.max !== null) && (
+            <Chip onRemove={() => set({ min: null, max: null })} removeLabel="Remover filtro de valor">
+              {filters.min !== null && filters.max !== null ? `${formatCents(filters.min)} a ${formatCents(filters.max)}` : filters.min !== null ? `A partir de ${formatCents(filters.min)}` : `Até ${formatCents(filters.max!)}`}
+            </Chip>
+          )}
+        </div>
+      )}
 
       <section aria-label="Totais do período" className="mx-4 mb-2 grid grid-cols-2 rounded-[18px] border border-line bg-surface">
         <div className="flex flex-col gap-0.5 border-r border-line px-4 py-3.5">
@@ -116,6 +162,19 @@ export function TransactionsPage() {
         )}
       </div>
 
+      {sheet && (
+        <FiltersSheet
+          value={filters}
+          categories={categories ?? []}
+          accounts={accounts ?? []}
+          onApply={(f) => {
+            setFilters(f)
+            setSheet(false)
+          }}
+          onClose={() => setSheet(false)}
+        />
+      )}
+
       <Link
         to="/transacoes/nova"
         aria-label="Nova transação"
@@ -126,6 +185,19 @@ export function TransactionsPage() {
         </svg>
       </Link>
     </main>
+  )
+}
+
+function Chip({ children, onRemove, removeLabel }: { children: ReactNode; onRemove: () => void; removeLabel: string }) {
+  return (
+    <span className="flex h-8 items-center gap-1 rounded-full bg-cobalt-soft pl-3 text-[13px] font-bold text-cobalt-strong">
+      {children}
+      <button onClick={onRemove} aria-label={removeLabel} className="grid size-8 place-items-center rounded-full">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      </button>
+    </span>
   )
 }
 
