@@ -43,24 +43,63 @@ export async function buildNewAsset(input: NewAssetInput, now: Instant, newId: (
     ['investments', investment],
     ['investment_movements', movement],
   ]
-  if (input.account_id) {
-    const tx: Transaction = {
-      ...base,
-      id: newId(),
-      type: 'expense',
-      amount_cents: input.invested,
-      description: `Aporte em ${investment.name}`,
-      date: input.date,
-      account_id: input.account_id,
-      category_id: null,
-      notes: null,
-      transfer_id: null,
-      investment_movement_id: movement.id,
-    }
-    entries.push(['transactions', tx])
-  }
+  if (input.account_id) entries.push(['transactions', linkedTransaction(movement, investment.name, now, newId())])
   entries.push(['investment_snapshots', await buildSnapshot(undefined, investment.id, input.today, input.current, now)])
   return entries
+}
+
+// Com conta, o movimento gera a movimentação interna ligada: aporte vira despesa, resgate vira
+// receita, mesmo valor e data, sem categoria (INV-15).
+function linkedTransaction(movement: InvestmentMovement, assetName: string, now: Instant, id: UUID): Transaction {
+  return {
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+    id,
+    type: movement.type === 'aporte' ? 'expense' : 'income',
+    amount_cents: movement.amount_cents,
+    description: `${movement.type === 'aporte' ? 'Aporte em' : 'Resgate de'} ${assetName}`,
+    date: movement.date,
+    account_id: movement.account_id!,
+    category_id: null,
+    notes: null,
+    transfer_id: null,
+    investment_movement_id: movement.id,
+  }
+}
+
+export interface MovementInput {
+  investment: Investment
+  type: 'aporte' | 'resgate'
+  quantity: bigint
+  amount: number
+  date: ISODate
+  account_id: UUID | null
+}
+
+// Aporte ou resgate num ativo existente; a ordem é movimento e depois a transação ligada.
+export function buildMovement(input: MovementInput, now: Instant, newId: () => UUID = () => crypto.randomUUID()): [EntityName, SyncedRecord][] {
+  const movement: InvestmentMovement = {
+    created_at: now,
+    updated_at: now,
+    deleted_at: null,
+    id: newId(),
+    investment_id: input.investment.id,
+    type: input.type,
+    date: input.date,
+    quantity: quantityToWire(input.quantity),
+    amount_cents: input.amount,
+    account_id: input.account_id,
+  }
+  const entries: [EntityName, SyncedRecord][] = [['investment_movements', movement]]
+  if (input.account_id) entries.push(['transactions', linkedTransaction(movement, input.investment.name, now, newId())])
+  return entries
+}
+
+// Excluir um movimento exclui junto a transação de conta ligada (INV-15).
+export function buildMovementRemoval(movement: InvestmentMovement, linked: Transaction[], now: Instant): [EntityName, SyncedRecord][] {
+  const gone = { deleted_at: now, updated_at: now }
+  return [...linked.filter((t) => !t.deleted_at).map((t): [EntityName, SyncedRecord] => ['transactions', { ...t, ...gone }]), ['investment_movements', { ...movement, ...gone }]]
 }
 
 // Um snapshot por ativo por dia, com id determinístico (INV-21): atualizar no mesmo dia troca
