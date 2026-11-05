@@ -32,7 +32,7 @@ export function quantityToWire(units: bigint): string {
   return frac ? `${int}.${frac}` : `${int}`
 }
 
-const unitsOf = (wire: string): bigint => {
+export const unitsOf = (wire: string): bigint => {
   const [int = '0', frac = ''] = wire.split('.')
   return BigInt(int) * SCALE + BigInt(frac.padEnd(8, '0').slice(0, 8))
 }
@@ -70,6 +70,18 @@ export function positionOf(movements: InvestmentMovement[], until: ISODate = '99
     }
   }
   return { quantity, invested }
+}
+
+// Aporte e resgate não podem deixar a quantidade negativa em nenhuma data (INV-13): confere a
+// linha do tempo inteira com o movimento novo (ou sem o que será removido).
+export function breaksPosition(movements: InvestmentMovement[], candidate?: InvestmentMovement, removingId?: string): boolean {
+  const all = [...movements.filter((m) => !m.deleted_at && m.id !== removingId && m.id !== candidate?.id), ...(candidate ? [candidate] : [])].sort(byDate)
+  let quantity = 0n
+  for (const m of all) {
+    quantity += m.type === 'aporte' ? unitsOf(m.quantity) : -unitsOf(m.quantity)
+    if (quantity < 0n) return true
+  }
+  return false
 }
 
 // Valor atual = snapshot de data mais recente (INV-22); null quando nunca foi informado.

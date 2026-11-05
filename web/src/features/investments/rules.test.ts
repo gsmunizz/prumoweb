@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Investment, InvestmentMovement, InvestmentSnapshot } from '../../db/types'
-import { buildAssets, currentValue, distribution, evolution, formatQuantity, monthGain, parseQuantity, positionOf, quantityToWire, totalsOf } from './rules'
+import { breaksPosition, buildAssets, currentValue, distribution, evolution, formatQuantity, monthGain, parseQuantity, positionOf, quantityToWire, totalsOf } from './rules'
 
 const base = { created_at: '2026-01-01T00:00:00Z', updated_at: '2026-01-01T00:00:00Z', deleted_at: null }
 const inv = (id: string, asset_class: Investment['asset_class'] = 'acoes'): Investment => ({ ...base, id, name: id, asset_class, ticker: null, account_id: null, notes: null })
@@ -79,5 +79,20 @@ describe('totais, distribuição e evolução', () => {
   it('ativo excluído some dos totais', () => {
     const gone = buildAssets([{ ...investments[0]!, deleted_at: 'x' }, ...investments.slice(1)], movements, snapshots)
     expect(totalsOf(gone).current).toBe(33000)
+  })
+})
+
+describe('breaksPosition', () => {
+  const m = [mov('1', 'a', 'aporte', '2026-01-10', '10', 1000), mov('2', 'a', 'resgate', '2026-03-10', '4', 500)]
+  it('resgate maior que a posição numa data quebra (INV-13)', () => {
+    expect(breaksPosition(m, mov('3', 'a', 'resgate', '2026-02-01', '7', 0))).toBe(true)
+    expect(breaksPosition(m, mov('3', 'a', 'resgate', '2026-02-01', '6', 0))).toBe(false)
+  })
+  it('um resgate posterior não vale para uma data anterior', () => {
+    expect(breaksPosition(m, mov('3', 'a', 'resgate', '2026-01-05', '1', 0))).toBe(true)
+  })
+  it('remover um aporte que sustenta resgates quebra a posição', () => {
+    expect(breaksPosition(m, undefined, '1')).toBe(true)
+    expect(breaksPosition(m, undefined, '2')).toBe(false)
   })
 })

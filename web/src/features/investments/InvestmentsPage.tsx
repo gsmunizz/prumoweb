@@ -27,6 +27,7 @@ export function InvestmentsPage() {
     return { investments, movements, snapshots }
   }, [])
   const accounts = useLive(activeAccounts, [])
+  const txs = useLive(() => db.transactions.filter((t) => !t.deleted_at && t.investment_movement_id !== null).toArray(), [])
 
   const view = useMemo(() => {
     if (!data) return null
@@ -174,7 +175,7 @@ export function InvestmentsPage() {
       )}
 
       {adding && <NewAssetSheet accounts={accounts ?? []} onClose={() => setAdding(false)} />}
-      {open && <AssetSheet asset={open} onClose={() => setOpenId(null)} />}
+      {open && data && <AssetSheet asset={open} movements={data.movements} accounts={accounts ?? []} transactions={txs ?? []} onClose={() => setOpenId(null)} />}
     </main>
   )
 }
