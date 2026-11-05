@@ -1,5 +1,7 @@
 import { Link } from '@tanstack/react-router'
+import { useState } from 'react'
 import { db } from '../../db'
+import { ExportSheet } from '../export/ExportSheet'
 import type { Theme } from '../../db/types'
 import { useLive } from '../../lib/useLive'
 import { useSession } from '../../lib/session'
@@ -31,6 +33,7 @@ export function SettingsPage() {
   const profile = useLive(() => db.profile.toCollection().first(), [])
   const email = session.status === 'authenticated' ? session.user.email : ''
   const name = profile?.name ?? ''
+  const [exporting, setExporting] = useState(false)
 
   async function pick(theme: Theme) {
     if (!profile || profile.theme === theme) return
@@ -123,7 +126,12 @@ export function SettingsPage() {
           <span className="text-[15px] font-bold">Sincronização</span>
           <span className="text-xs font-semibold text-ink-2">{syncLabel(session.status === 'authenticated' && session.offline, sync)}</span>
         </div>
+        <button onClick={() => setExporting(true)} className="flex min-h-14 items-center justify-between gap-3 rounded-card border border-line bg-surface px-4 text-left">
+          <span className="text-[15px] font-bold">Exportar transações (CSV)</span>
+          <span aria-hidden="true">›</span>
+        </button>
       </section>
+      {exporting && <ExportSheet onClose={() => setExporting(false)} />}
     </main>
   )
 }
