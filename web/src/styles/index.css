@@ -25,6 +25,11 @@
   --color-error-soft: #fdecea;
   --color-warning: #9a5b00;
   --color-warning-soft: #fff3dc;
+  --heat-0: #eef1f5;
+  --heat-1: #fde3d8;
+  --heat-2: #f8b9a0;
+  --heat-3: #ee8661;
+  --heat-4: #b8401f;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -37,6 +42,11 @@
     --color-cobalt: #7c93ff;
     --color-income: #3dd6a0;
     --color-expense: #ff8a73;
+    --heat-0: #1a2338;
+    --heat-1: #4a2a22;
+    --heat-2: #7a3b2a;
+    --heat-3: #9c4a30;
+    --heat-4: #c4532c;
   }
 }
 
@@ -49,6 +59,11 @@
   --color-cobalt: #7c93ff;
   --color-income: #3dd6a0;
   --color-expense: #ff8a73;
+  --heat-0: #1a2338;
+  --heat-1: #4a2a22;
+  --heat-2: #7a3b2a;
+  --heat-3: #9c4a30;
+  --heat-4: #c4532c;
 }
 
 @theme inline {
@@ -73,11 +88,11 @@
   --color-warning-soft: var(--color-warning-soft);
 
   /* Escala do calendário (gasto por dia, CAL-02): nível 0 a 4 e destaque de dia atípico. */
-  --color-heat-0: #eef1f5;
-  --color-heat-1: #fde3d8;
-  --color-heat-2: #f8b9a0;
-  --color-heat-3: #ee8661;
-  --color-heat-4: #b8401f;
+  --color-heat-0: var(--heat-0);
+  --color-heat-1: var(--heat-1);
+  --color-heat-2: var(--heat-2);
+  --color-heat-3: var(--heat-3);
+  --color-heat-4: var(--heat-4);
 
   /* Raios: chip pequeno, campo, card, sheet. */
   --radius-chip: 10px;

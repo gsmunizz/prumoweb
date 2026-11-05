@@ -41,6 +41,7 @@ export function MaisPage() {
       <div className="grid grid-cols-2 gap-3">
         <ShortcutCard to="/mais/contas" label="Contas" hint="Saldos e carteiras" />
         <ShortcutCard to="/mais/categorias" label="Categorias" hint="Despesas e receitas" />
+        <ShortcutCard to="/mais/configuracoes" label="Configurações" hint="Tema e sincronização" />
       </div>
 
       {confirming === null ? (
@@ -68,7 +69,7 @@ export function MaisPage() {
   )
 }
 
-function syncLabel(offline: boolean, s: ReturnType<typeof useSyncStatus>): string {
+export function syncLabel(offline: boolean, s: ReturnType<typeof useSyncStatus>): string {
   if (offline) return s.pending ? `Sem conexão · ${s.pending} para enviar` : 'Sem conexão'
   if (s.state === 'syncing') return 'Sincronizando…'
   if (s.state === 'error') return 'Não foi possível sincronizar. Tentando de novo.'
@@ -78,7 +79,7 @@ function syncLabel(offline: boolean, s: ReturnType<typeof useSyncStatus>): strin
   return min < 1 ? 'Sincronizado agora' : `Sincronizado há ${min} min`
 }
 
-function ShortcutCard({ to, label, hint }: { to: '/mais/contas' | '/mais/categorias'; label: string; hint: string }) {
+function ShortcutCard({ to, label, hint }: { to: '/mais/contas' | '/mais/categorias' | '/mais/configuracoes'; label: string; hint: string }) {
   return (
     <Link to={to} className="flex min-h-28 flex-col justify-end gap-0.5 rounded-card border border-line bg-surface p-4">
       <span className="text-[15px] font-extrabold">{label}</span>
