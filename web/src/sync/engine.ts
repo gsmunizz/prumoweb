@@ -52,16 +52,23 @@ export class SyncEngine {
 
   // Grava o registro e a operação na mesma transação: ou os dois, ou nenhum (SYN-02).
   async write<T extends SyncedRecord>(entity: EntityName, record: T): Promise<void> {
-    const table = this.db.table(entity) as Table
-    await this.db.transaction('rw', table, this.db.outbox, async () => {
-      await table.put(record)
-      await this.db.outbox.add({
-        op_id: crypto.randomUUID(),
-        entity,
-        id: record.id,
-        updated_at: record.updated_at,
-        data: toWire(record),
-      })
+    await this.writeMany([[entity, record]])
+  }
+
+  // Vários registros numa só transação, na ordem dada, para grupos que a API confere juntos
+  // (ativo, aporte e a movimentação de conta ligada, por exemplo: INV-05, INV-15).
+  async writeMany(entries: [EntityName, SyncedRecord][]): Promise<void> {
+    await this.db.transaction('rw', this.db.tables, async () => {
+      for (const [entity, record] of entries) {
+        await (this.db.table(entity) as Table).put(record)
+        await this.db.outbox.add({
+          op_id: crypto.randomUUID(),
+          entity,
+          id: record.id,
+          updated_at: record.updated_at,
+          data: toWire(record),
+        })
+      }
     })
   }
 

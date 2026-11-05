@@ -75,6 +75,12 @@ export async function saveRecord<T extends SyncedRecord>(entity: EntityName, rec
   requestSync()
 }
 
+export async function saveRecords(entries: [EntityName, SyncedRecord][]): Promise<void> {
+  await engine.writeMany(entries)
+  await refreshCounters()
+  requestSync()
+}
+
 export async function deleteRecord(entity: EntityName, id: string): Promise<void> {
   await engine.remove(entity, id)
   await refreshCounters()
