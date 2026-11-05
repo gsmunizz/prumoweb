@@ -53,6 +53,22 @@ describe('SyncEngine', () => {
     expect(op!.data).not.toHaveProperty('server_version')
   })
 
+  it('writeMany grava tudo na ordem dada, numa só transação', async () => {
+    await engine.writeMany([
+      ['accounts', account('a1')],
+      ['accounts', account('a2')],
+    ])
+    expect((await db.outbox.orderBy('seq').toArray()).map((o) => o.id)).toEqual(['a1', 'a2'])
+    await expect(
+      engine.writeMany([
+        ['accounts', account('a3')],
+        ['accounts', null as never],
+      ]),
+    ).rejects.toThrow()
+    expect(await db.accounts.get('a3')).toBeUndefined()
+    expect(await db.outbox.count()).toBe(2)
+  })
+
   it('remove faz exclusão lógica com deleted_at', async () => {
     await engine.write('accounts', account('a1'))
     await engine.remove('accounts', 'a1')
