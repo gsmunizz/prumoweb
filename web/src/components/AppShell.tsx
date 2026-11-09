@@ -70,9 +70,19 @@ export function AppShell() {
       </div>
       <nav
         aria-label="Navegação principal"
-        className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:order-first md:sticky md:top-0 md:inset-auto md:h-dvh md:w-24 md:shrink-0 md:border-t-0 md:border-r md:pb-0 xl:w-60"
+        className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:order-first md:sticky md:top-0 md:inset-auto md:flex md:h-dvh md:w-24 md:shrink-0 md:flex-col md:border-t-0 md:border-r md:pb-0 xl:w-60"
       >
-        <ul className="mx-auto grid max-w-3xl grid-cols-5 px-1 pt-2 pb-2 md:flex md:h-full md:max-w-none md:flex-col md:gap-2 md:px-3 md:py-6 xl:px-4">
+        <Link
+          to="/transacoes/nova"
+          aria-label="Nova transação"
+          className="hidden md:mx-auto md:mt-6 md:grid md:size-14 md:place-items-center md:rounded-[18px] md:bg-cobalt md:text-white md:shadow-fab xl:mx-4 xl:mt-6 xl:flex xl:h-11 xl:w-auto xl:gap-3 xl:rounded-xl xl:px-3 xl:text-sm xl:font-bold"
+        >
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          <span className="hidden xl:inline">Nova transação</span>
+        </Link>
+        <ul className="mx-auto grid max-w-3xl grid-cols-5 px-1 pt-2 pb-2 md:flex md:flex-1 md:max-w-none md:flex-col md:gap-2 md:px-3 md:py-6 xl:px-4">
           {tabs.map((t) => (
             <li key={t.to}>
               <Link

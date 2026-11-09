@@ -204,7 +204,7 @@ export function DashboardPage() {
       <Link
         to="/transacoes/nova"
         aria-label="Nova transação"
-        className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 md:bottom-8 md:right-8 z-10 grid size-[60px] place-items-center rounded-[20px] bg-cobalt text-white shadow-fab"
+        className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 z-10 md:hidden grid size-[60px] place-items-center rounded-[20px] bg-cobalt text-white shadow-fab"
       >
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />
