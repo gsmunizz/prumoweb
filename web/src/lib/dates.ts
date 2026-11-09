@@ -18,6 +18,12 @@ function parts(date: ISODate): [number, number, number] {
   return [y, m, d]
 }
 
+// "30 set"
+export function formatShort(date: ISODate): string {
+  const [, m, d] = parts(date)
+  return `${d} ${months[m - 1]}`
+}
+
 // "Qua, 30 set"
 export function formatDay(date: ISODate): string {
   const [y, m, d] = parts(date)

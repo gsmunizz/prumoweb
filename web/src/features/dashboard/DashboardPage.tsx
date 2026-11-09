@@ -5,6 +5,8 @@ import { formatDay, monthLabel, monthOf, shiftMonth, today } from '../../lib/dat
 import { CategoryIcon, tint } from '../../lib/icons'
 import { formatCents } from '../../lib/money'
 import { useSession } from '../../lib/session'
+import { useBreakpoint } from '../../lib/breakpoint'
+import { DashboardWide } from './DashboardWide'
 import { useLive } from '../../lib/useLive'
 import { activeCategories } from '../transactions/queries'
 import { balance, expensesByCategory, lastMonths, monthStats, topExpenses, variation } from './stats'
@@ -28,6 +30,11 @@ const signed = (cents: number, fmt: (c: number) => string) => `${cents >= 0 ? '+
 // Início (design "01 · Início"): saldo, resumo do mês, gastos por categoria, maiores gastos
 // e receitas x despesas. Gráfico de evolução do saldo e patrimônio investido entram depois.
 export function DashboardPage() {
+  const bp = useBreakpoint()
+  return bp === 'mobile' ? <DashboardMobile /> : <DashboardWide variant={bp} />
+}
+
+function DashboardMobile() {
   const session = useSession()
   const [month, setMonth] = useState(() => monthOf(today()))
   const [hidden, setHidden] = useState(() => {

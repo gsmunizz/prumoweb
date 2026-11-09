@@ -1,4 +1,6 @@
 import { Link } from '@tanstack/react-router'
+import { useBreakpoint } from '../../lib/breakpoint'
+import { SettingsWide } from './SettingsWide'
 import { useState } from 'react'
 import { db } from '../../db'
 import { ExportSheet } from '../export/ExportSheet'
@@ -28,6 +30,11 @@ const initialsOf = (name: string) =>
 // Configurações do design: perfil (leitura), tema (salvo no perfil e sincronizado), moeda e atalhos.
 // Lembrete, biometria e PIN são recursos do app nativo e não entram na web.
 export function SettingsPage() {
+  const bp = useBreakpoint()
+  return bp === 'mobile' ? <SettingsMobile /> : <SettingsWide variant={bp} />
+}
+
+function SettingsMobile() {
   const session = useSession()
   const sync = useSyncStatus()
   const profile = useLive(() => db.profile.toCollection().first(), [])
@@ -42,7 +49,7 @@ export function SettingsPage() {
   }
 
   return (
-    <main className="flex flex-col gap-5 px-4 md:px-8 pb-10 pt-[calc(1rem+env(safe-area-inset-top))]">
+    <main className="flex flex-col gap-5 px-4 pb-10 pt-[calc(1rem+env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
         <Link to="/mais" aria-label="Voltar" className="grid size-11 place-items-center rounded-field">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

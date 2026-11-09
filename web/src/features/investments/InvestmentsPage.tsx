@@ -50,13 +50,14 @@ export function InvestmentsPage() {
   const empty = view !== null && view.assets.length === 0
 
   return (
-    <main className="flex flex-col pb-28 md:pb-10">
-      <header className="flex items-center justify-between px-4 pb-3 pt-[calc(1.25rem+env(safe-area-inset-top))]">
-        <h1 className="text-[26px] font-extrabold tracking-tight">Investimentos</h1>
-        <button onClick={() => setAdding(true)} aria-label="Adicionar investimento" className="grid size-11 place-items-center rounded-field border border-line bg-surface">
+    <main className="mx-auto flex w-full max-w-3xl flex-col pb-28 md:pb-10 xl:max-w-none xl:px-8 xl:pt-7">
+      <header className="flex items-center justify-between px-4 pb-3 pt-[calc(1.25rem+env(safe-area-inset-top))] md:px-8 xl:px-0 xl:pt-0">
+        <h1 className="text-[26px] font-extrabold tracking-tight xl:text-[28px]">Investimentos</h1>
+        <button onClick={() => setAdding(true)} aria-label="Adicionar investimento" className="grid size-11 place-items-center rounded-field border border-line bg-surface xl:flex xl:h-12 xl:w-auto xl:gap-2 xl:border-0 xl:bg-cobalt xl:px-5 xl:text-[15px] xl:font-extrabold xl:text-white">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
             <path d="M12 5v14M5 12h14" />
           </svg>
+          <span className="hidden xl:inline">Novo ativo</span>
         </button>
       </header>
 
@@ -73,8 +74,8 @@ export function InvestmentsPage() {
           </button>
         </div>
       ) : (
-        <div className="flex flex-col gap-4 px-4">
-          <section aria-label="Resumo do patrimônio" className="flex flex-col gap-[18px] rounded-3xl bg-[#0f1729] p-[22px] text-white">
+        <div className="flex flex-col gap-4 px-4 xl:grid xl:grid-cols-6 xl:gap-6 xl:px-0">
+          <section aria-label="Resumo do patrimônio" className="xl:col-span-6 flex flex-col gap-[18px] rounded-3xl bg-[#0f1729] p-[22px] text-white">
             <div className="flex flex-col gap-1.5">
               <span className="text-sm font-semibold text-[#b3bdcf]">Patrimônio total</span>
               <span className="text-[34px] font-extrabold tracking-tight">{formatCents(totals!.current)}</span>
@@ -96,7 +97,7 @@ export function InvestmentsPage() {
             </div>
           </section>
 
-          <section aria-labelledby="evo-t" className="flex flex-col gap-3.5 rounded-card border border-line bg-surface p-5">
+          <section aria-labelledby="evo-t" className="xl:col-span-4 flex flex-col gap-3.5 rounded-card border border-line bg-surface p-5">
             <div className="flex items-center justify-between">
               <h2 id="evo-t" className="text-base font-extrabold">
                 Evolução patrimonial
@@ -123,7 +124,7 @@ export function InvestmentsPage() {
           </section>
 
           {view.slices.length > 0 && (
-            <section aria-labelledby="dist-t" className="flex flex-col gap-4 rounded-card border border-line bg-surface p-5">
+            <section aria-labelledby="dist-t" className="xl:col-span-2 flex flex-col gap-4 rounded-card border border-line bg-surface p-5">
               <h2 id="dist-t" className="text-base font-extrabold">
                 Distribuição por classe
               </h2>
@@ -145,7 +146,7 @@ export function InvestmentsPage() {
             </section>
           )}
 
-          <section aria-labelledby="ativos-t" className="flex flex-col gap-3">
+          <section aria-labelledby="ativos-t" className="flex flex-col gap-3 xl:col-span-6">
             <div className="flex items-center justify-between px-1 pt-1">
               <h2 id="ativos-t" className="text-lg font-extrabold">
                 Meus ativos
@@ -164,7 +165,7 @@ export function InvestmentsPage() {
             {shown.length === 0 ? (
               <p className="py-6 text-center text-sm text-ink-2">Nenhum ativo nesta classe.</p>
             ) : (
-              <ul className="flex flex-col gap-2 md:grid md:grid-cols-2 md:gap-3">
+              <ul className="flex flex-col gap-2 md:grid md:grid-cols-2 md:gap-3 xl:grid-cols-3">
                 {shown.map((a) => (
                   <AssetCard key={a.investment.id} asset={a} onOpen={() => setOpenId(a.investment.id)} />
                 ))}

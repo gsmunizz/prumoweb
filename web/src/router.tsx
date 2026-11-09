@@ -31,7 +31,7 @@ const rootRoute = createRootRoute({
 // Telas autenticadas, dentro do shell com a barra de navegação.
 const appRoute = createRoute({ getParentRoute: () => rootRoute, id: 'app', component: AppShell })
 const homeRoute = createRoute({ getParentRoute: () => appRoute, path: '/', component: DashboardPage })
-const transacoesRoute = createRoute({ getParentRoute: () => appRoute, path: '/transacoes', component: TransactionsPage })
+const transacoesRoute = createRoute({ getParentRoute: () => appRoute, path: '/transacoes', component: TransactionsPage, validateSearch: (s: Record<string, unknown>): { q?: string } => (typeof s.q === 'string' && s.q ? { q: s.q } : {}) })
 const detalheRoute = createRoute({ getParentRoute: () => appRoute, path: '/transacoes/$id', component: TransactionDetailPage })
 const calendarioRoute = createRoute({ getParentRoute: () => appRoute, path: '/calendario', component: CalendarPage })
 const investimentosRoute = createRoute({ getParentRoute: () => appRoute, path: '/investimentos', component: InvestmentsPage })
