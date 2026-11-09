@@ -40,7 +40,7 @@ export function TransactionsPage() {
   const groups = groupByDay(visible)
 
   return (
-    <main className="flex flex-col pb-24">
+    <main className="flex flex-col pb-24 md:pb-10">
       <header className="flex items-center justify-between px-4 pb-3 pt-[calc(1.25rem+env(safe-area-inset-top))]">
         <h1 className="text-[26px] font-extrabold tracking-tight">Transações</h1>
         <button
@@ -178,7 +178,7 @@ export function TransactionsPage() {
       <Link
         to="/transacoes/nova"
         aria-label="Nova transação"
-        className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 z-10 grid size-[60px] place-items-center rounded-[20px] bg-cobalt text-white shadow-fab"
+        className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 z-10 md:hidden grid size-[60px] place-items-center rounded-[20px] bg-cobalt text-white shadow-fab"
       >
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />

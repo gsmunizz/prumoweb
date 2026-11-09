@@ -25,7 +25,7 @@ export function MaisPage() {
   }
 
   return (
-    <main className="flex flex-col gap-4 px-4 pt-[calc(1.25rem+env(safe-area-inset-top))]">
+    <main className="flex flex-col gap-4 px-4 md:px-8 pt-[calc(1.25rem+env(safe-area-inset-top))]">
       <h1 className="text-[26px] font-extrabold tracking-tight">Mais</h1>
 
       <section className="flex items-center gap-3.5 rounded-card border border-line bg-surface p-4">

@@ -50,7 +50,7 @@ export function InvestmentsPage() {
   const empty = view !== null && view.assets.length === 0
 
   return (
-    <main className="flex flex-col pb-28">
+    <main className="flex flex-col pb-28 md:pb-10">
       <header className="flex items-center justify-between px-4 pb-3 pt-[calc(1.25rem+env(safe-area-inset-top))]">
         <h1 className="text-[26px] font-extrabold tracking-tight">Investimentos</h1>
         <button onClick={() => setAdding(true)} aria-label="Adicionar investimento" className="grid size-11 place-items-center rounded-field border border-line bg-surface">
@@ -164,7 +164,7 @@ export function InvestmentsPage() {
             {shown.length === 0 ? (
               <p className="py-6 text-center text-sm text-ink-2">Nenhum ativo nesta classe.</p>
             ) : (
-              <ul className="flex flex-col gap-2">
+              <ul className="flex flex-col gap-2 md:grid md:grid-cols-2 md:gap-3">
                 {shown.map((a) => (
                   <AssetCard key={a.investment.id} asset={a} onOpen={() => setOpenId(a.investment.id)} />
                 ))}

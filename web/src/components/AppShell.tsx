@@ -56,8 +56,10 @@ export function AppShell() {
   }
   if (session.status === 'anonymous') return <Navigate to="/login" replace />
 
+  // Celular: barra inferior. Tablet (md): trilho de ícones à esquerda. Desktop (xl): trilho com rótulos.
   return (
-    <div className="mx-auto flex min-h-dvh max-w-3xl flex-col pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
+    <div className="flex min-h-dvh flex-col md:flex-row">
+      <div className="mx-auto flex w-full min-w-0 max-w-3xl flex-1 flex-col pb-[calc(5.5rem+env(safe-area-inset-bottom))] md:max-w-5xl md:pb-0 xl:max-w-6xl">
       {session.offline && (
         <p role="status" className="bg-ink px-4 py-2 text-center text-[13px] font-semibold text-surface">
           Sem conexão. Você está vendo os dados do aparelho.
@@ -65,19 +67,30 @@ export function AppShell() {
       )}
       {!session.user.email_verified && <VerifyBanner />}
       <Outlet />
+      </div>
       <nav
         aria-label="Navegação principal"
-        className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)]"
+        className="fixed inset-x-0 bottom-0 z-10 border-t border-line bg-surface pb-[env(safe-area-inset-bottom)] md:order-first md:sticky md:top-0 md:inset-auto md:flex md:h-dvh md:w-24 md:shrink-0 md:flex-col md:border-t-0 md:border-r md:pb-0 xl:w-60"
       >
-        <ul className="mx-auto grid max-w-3xl grid-cols-5 px-1 pt-2 pb-2">
+        <Link
+          to="/transacoes/nova"
+          aria-label="Nova transação"
+          className="hidden md:mx-auto md:mt-6 md:grid md:size-14 md:place-items-center md:rounded-[18px] md:bg-cobalt md:text-white md:shadow-fab xl:mx-4 xl:mt-6 xl:flex xl:h-11 xl:w-auto xl:gap-3 xl:rounded-xl xl:px-3 xl:text-sm xl:font-bold"
+        >
+          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          <span className="hidden xl:inline">Nova transação</span>
+        </Link>
+        <ul className="mx-auto grid max-w-3xl grid-cols-5 px-1 pt-2 pb-2 md:flex md:flex-1 md:max-w-none md:flex-col md:gap-2 md:px-3 md:py-6 xl:px-4">
           {tabs.map((t) => (
             <li key={t.to}>
               <Link
                 to={t.to}
                 activeOptions={{ exact: t.to === '/' }}
-                className="group flex flex-col items-center gap-1 text-[11px] font-semibold text-ink-2 data-[status=active]:font-extrabold data-[status=active]:text-cobalt"
+                className="group flex flex-col items-center gap-1 text-[11px] font-semibold text-ink-2 data-[status=active]:font-extrabold data-[status=active]:text-cobalt md:gap-1 md:text-xs xl:flex-row xl:gap-3 xl:rounded-xl xl:px-3 xl:py-2 xl:text-sm xl:hover:bg-bg"
               >
-                <span className="flex h-[30px] w-14 items-center justify-center rounded-full group-data-[status=active]:bg-cobalt-soft">
+                <span className="flex h-[30px] w-14 items-center justify-center rounded-full group-data-[status=active]:bg-cobalt-soft xl:h-9 xl:w-9">
                   <svg width="22" height="22" viewBox="0 0 24 24" strokeWidth="1.8" {...icon}>
                     <path d={t.path} />
                   </svg>

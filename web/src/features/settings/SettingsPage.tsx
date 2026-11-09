@@ -42,7 +42,7 @@ export function SettingsPage() {
   }
 
   return (
-    <main className="flex flex-col gap-5 px-4 pb-10 pt-[calc(1rem+env(safe-area-inset-top))]">
+    <main className="flex flex-col gap-5 px-4 md:px-8 pb-10 pt-[calc(1rem+env(safe-area-inset-top))]">
       <header className="flex items-center gap-2">
         <Link to="/mais" aria-label="Voltar" className="grid size-11 place-items-center rounded-field">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">

@@ -56,7 +56,7 @@ export function CalendarPage() {
   }
 
   return (
-    <main className="flex flex-col pb-28">
+    <main className="flex flex-col pb-28 md:pb-10">
       <header className="flex items-center justify-between px-4 pb-3 pt-[calc(1.25rem+env(safe-area-inset-top))]">
         <h1 className="text-[26px] font-extrabold tracking-tight">Calendário</h1>
         <div className="flex items-center gap-0.5">
@@ -196,7 +196,7 @@ export function CalendarPage() {
       <Link
         to="/transacoes/nova"
         aria-label="Nova transação"
-        className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 z-10 grid size-[60px] place-items-center rounded-[20px] bg-cobalt text-white shadow-fab"
+        className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 z-10 md:hidden grid size-[60px] place-items-center rounded-[20px] bg-cobalt text-white shadow-fab"
       >
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />

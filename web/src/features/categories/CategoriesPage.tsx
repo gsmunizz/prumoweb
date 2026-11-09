@@ -35,7 +35,7 @@ export function CategoriesPage() {
   ]
 
   return (
-    <main className="flex flex-col gap-5 px-4 pb-24">
+    <main className="flex flex-col gap-5 px-4 md:px-8 pb-24">
       <header className="flex items-center justify-between pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <Link to="/mais" aria-label="Voltar" className="grid size-11 place-items-center rounded-field">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
