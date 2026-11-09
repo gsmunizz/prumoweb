@@ -62,8 +62,8 @@ function DetailSheet() {
   return (
     <div className="fixed inset-0 z-20">
       <button aria-label="Fechar detalhes" onClick={close} className="absolute inset-0 bg-ink/50" />
-      <section role="dialog" aria-modal="true" aria-labelledby="det-t" className="absolute inset-x-0 bottom-0 mx-auto flex max-w-md flex-col gap-5 rounded-t-[28px] bg-surface px-5 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2.5">
-        <div aria-hidden="true" className="mx-auto h-[5px] w-10 rounded-full bg-line" />
+      <section role="dialog" aria-modal="true" aria-labelledby="det-t" className="absolute inset-x-0 bottom-0 mx-auto flex max-w-md flex-col gap-5 rounded-t-[28px] bg-surface px-5 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2.5 md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[28px]">
+        <div aria-hidden="true" className="mx-auto h-[5px] w-10 rounded-full bg-line md:hidden" />
         {t === null ? (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
             <h2 id="det-t" className="text-lg font-extrabold">Transação não encontrada</h2>

@@ -62,7 +62,7 @@ export function FiltersSheet({ value, categories, accounts, onApply, onClose }: 
   return (
     <div className="fixed inset-0 z-30">
       <button aria-label="Fechar filtros" onClick={onClose} className="absolute inset-0 bg-ink/50" />
-      <section role="dialog" aria-modal="true" aria-labelledby="flt-t" className="absolute inset-x-0 bottom-0 mx-auto flex h-[92dvh] max-w-md flex-col rounded-t-[28px] bg-surface">
+      <section role="dialog" aria-modal="true" aria-labelledby="flt-t" className="absolute inset-x-0 bottom-0 mx-auto flex h-[92dvh] max-w-md flex-col rounded-t-[28px] bg-surface md:h-[85dvh] md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[28px]">
         <div aria-hidden="true" className="mx-auto mb-1 mt-2.5 h-[5px] w-10 rounded-full bg-line" />
         <div className="flex items-center justify-between px-5 pb-3 pt-2">
           <h2 id="flt-t" className="text-xl font-extrabold">
