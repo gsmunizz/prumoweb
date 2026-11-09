@@ -47,7 +47,7 @@ export function AccountsPage() {
   }
 
   return (
-    <main className="flex flex-col gap-4 px-4 pb-24">
+    <main className="flex flex-col gap-4 px-4 md:px-8 pb-24">
       <header className="flex items-center justify-between px-0 pb-2 pt-[calc(0.75rem+env(safe-area-inset-top))]">
         <Link to="/mais" aria-label="Voltar" className="grid size-11 place-items-center rounded-field">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
@@ -84,7 +84,7 @@ export function AccountsPage() {
           </section>
 
           {active.length === 0 && <p className="py-6 text-center text-sm text-ink-3">Nenhuma conta ainda. Toque em + para criar.</p>}
-          <ul className="flex flex-col gap-2.5">
+          <ul className="flex flex-col gap-2.5 md:grid md:grid-cols-2">
             {active.map((r) => (
               <AccountCard key={r.account.id} r={r} open={menu === r.account.id} onToggle={() => setMenu(menu === r.account.id ? null : r.account.id)}
                 onEdit={() => (setMenu(null), setEditing({ kind: 'edit', account: r.account }))}

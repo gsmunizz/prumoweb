@@ -78,7 +78,7 @@ export function DashboardPage() {
   }
 
   return (
-    <main className="flex flex-col gap-4 px-4 pb-24 pt-[calc(1.25rem+env(safe-area-inset-top))]">
+    <main className="flex flex-col gap-4 px-4 md:px-8 pb-24 md:pb-10 pt-[calc(1.25rem+env(safe-area-inset-top))]">
       <header className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div aria-hidden="true" className="grid size-11 place-items-center rounded-full bg-cobalt-soft text-[15px] font-extrabold text-cobalt-strong">
@@ -128,10 +128,10 @@ export function DashboardPage() {
             </div>
           </section>
 
-          <section aria-label="Resumo do mês" className="grid grid-cols-2 gap-3">
+          <section aria-label="Resumo do mês" className="grid grid-cols-2 gap-3 md:grid-cols-3">
             <SummaryCard label="Receitas" tone="income" value={fmt(data.cur.income)} change={variation(data.cur.income, data.prev.income)} goodWhenUp />
             <SummaryCard label="Despesas" tone="expense" value={fmt(data.cur.expense)} change={variation(data.cur.expense, data.prev.expense)} goodWhenUp={false} />
-            <div className="col-span-2 flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
+            <div className="col-span-2 flex flex-col gap-3 rounded-card md:col-span-1 border border-line bg-surface p-4">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col gap-1">
                   <span className="text-[13px] font-semibold text-ink-2">Resultado líquido</span>
@@ -150,6 +150,7 @@ export function DashboardPage() {
             </div>
           </section>
 
+          <div className="grid gap-4 md:grid-cols-2">
           <Card title="Gastos por categoria" action={<Link to="/transacoes" className="text-[13px] font-bold text-cobalt">Ver transações</Link>}>
             {data.slices.length === 0 ? (
               <Muted>Nenhuma despesa neste mês.</Muted>
@@ -193,6 +194,7 @@ export function DashboardPage() {
             )}
           </Card>
 
+          </div>
           <Card title="Receitas x despesas" action={<span className="text-xs text-ink-3">Últimos 6 meses</span>}>
             <Bars series={data.series} />
           </Card>
@@ -202,7 +204,7 @@ export function DashboardPage() {
       <Link
         to="/transacoes/nova"
         aria-label="Nova transação"
-        className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 z-10 grid size-[60px] place-items-center rounded-[20px] bg-cobalt text-white shadow-fab"
+        className="fixed bottom-[calc(6rem+env(safe-area-inset-bottom))] right-5 md:bottom-8 md:right-8 z-10 grid size-[60px] place-items-center rounded-[20px] bg-cobalt text-white shadow-fab"
       >
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" aria-hidden="true">
           <path d="M12 5v14M5 12h14" />
