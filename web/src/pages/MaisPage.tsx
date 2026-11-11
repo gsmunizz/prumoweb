@@ -1,31 +1,22 @@
-import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
-import { db } from '../db'
-import { logout, useSession } from '../lib/session'
+import { Link, Navigate } from '@tanstack/react-router'
+import { SignOut } from '../components/SignOut'
+import { useBreakpoint } from '../lib/breakpoint'
+import { useSession } from '../lib/session'
 import { useSyncStatus } from '../sync'
 
 // "Mais" do design (perfil, atalhos, configurações). Nesta etapa: perfil e sair.
 export function MaisPage() {
   const session = useSession()
   const sync = useSyncStatus()
-  const [confirming, setConfirming] = useState<number | null>(null)
-  const [busy, setBusy] = useState(false)
+  const bp = useBreakpoint()
 
   if (session.status !== 'authenticated') return null
+  // Tablet e desktop não têm a tela Mais: Contas, Categorias e Configurações têm destino próprio.
+  if (bp !== 'mobile') return <Navigate to="/mais/contas" replace />
   const { email } = session.user
 
-  async function ask() {
-    // AUT-19: sair apaga o banco local; avisa antes se há alterações ainda não enviadas.
-    setConfirming(await db.outbox.count())
-  }
-
-  async function leave() {
-    setBusy(true)
-    await logout()
-  }
-
   return (
-    <main className="flex flex-col gap-4 px-4 md:px-8 pt-[calc(1.25rem+env(safe-area-inset-top))]">
+    <main className="flex flex-col gap-4 px-4 pt-[calc(1.25rem+env(safe-area-inset-top))]">
       <h1 className="text-[26px] font-extrabold tracking-tight">Mais</h1>
 
       <section className="flex items-center gap-3.5 rounded-card border border-line bg-surface p-4">
@@ -44,27 +35,7 @@ export function MaisPage() {
         <ShortcutCard to="/mais/configuracoes" label="Configurações" hint="Tema e sincronização" />
       </div>
 
-      {confirming === null ? (
-        <button onClick={() => void ask()} className="h-14 rounded-2xl border border-line bg-surface text-base font-extrabold text-error">
-          Sair
-        </button>
-      ) : (
-        <section role="alertdialog" aria-label="Confirmar saída" className="flex flex-col gap-3 rounded-card border border-line bg-surface p-4">
-          <p className="text-sm text-ink-2">
-            {confirming > 0
-              ? `Há ${confirming} alteração(ões) que ainda não foram enviadas e serão perdidas ao sair. Conecte-se à internet para sincronizar antes.`
-              : 'Os dados deste aparelho serão apagados. Eles continuam na sua conta.'}
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button onClick={() => setConfirming(null)} className="h-12 rounded-2xl border border-line font-extrabold">
-              Cancelar
-            </button>
-            <button onClick={() => void leave()} disabled={busy} className="h-12 rounded-2xl bg-error font-extrabold text-white disabled:opacity-60">
-              {busy ? 'Saindo…' : 'Sair mesmo assim'}
-            </button>
-          </div>
-        </section>
-      )}
+      <SignOut />
     </main>
   )
 }

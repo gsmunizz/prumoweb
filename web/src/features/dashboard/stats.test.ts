@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Account, Category, Transaction } from '../../db/types'
-import { balance, expensesByCategory, lastMonths, monthStats, topExpenses, variation } from './stats'
+import { balance, balanceSeries, expensesByCategory, lastMonths, monthStats, topExpenses, variation } from './stats'
 
 const base = { created_at: '', updated_at: '', deleted_at: null, description: null, notes: null, transfer_id: null, investment_movement_id: null }
 const tx = (id: string, date: string, type: 'income' | 'expense', cents: number, extra: Partial<Transaction> = {}): Transaction => ({ ...base, id, date, type, amount_cents: cents, account_id: 'a1', category_id: 'c1', ...extra })
@@ -54,5 +54,35 @@ describe('topExpenses e lastMonths', () => {
     const s = lastMonths([tx('1', '2026-10-01', 'income', 5)], '2026-10')
     expect(s.map((p) => p.month)).toEqual(['2026-05', '2026-06', '2026-07', '2026-08', '2026-09', '2026-10'])
     expect(s[5]!.income).toBe(5)
+  })
+})
+
+describe('balanceSeries', () => {
+  const accounts = [acc('a1', 1000)]
+  const txs = [tx('1', '2026-10-02', 'income', 500), tx('2', '2026-10-05', 'expense', 200), tx('3', '2026-09-20', 'expense', 100)]
+  it('mês: um ponto por dia até hoje, repetindo o saldo entre lançamentos', () => {
+    const s = balanceSeries(accounts, txs, '2026-10', 'month', '2026-10-06')
+    expect(s).toHaveLength(6)
+    expect(s[0]).toEqual({ date: '2026-10-01', value: 900 })
+    expect(s[1]).toEqual({ date: '2026-10-02', value: 1400 })
+    expect(s[3]).toEqual({ date: '2026-10-04', value: 1400 })
+    expect(s[5]).toEqual({ date: '2026-10-06', value: 1200 })
+  })
+  it('mês passado vai até o último dia', () => {
+    const s = balanceSeries(accounts, txs, '2026-09', 'month', '2026-10-06')
+    expect(s).toHaveLength(30)
+    expect(s[29]).toEqual({ date: '2026-09-30', value: 900 })
+  })
+  it('semana: sete dias terminando hoje', () => {
+    const s = balanceSeries(accounts, txs, '2026-10', 'week', '2026-10-06')
+    expect(s.map((p) => p.date)).toEqual(['2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05', '2026-10-06'])
+    expect(s[0]!.value).toBe(900)
+  })
+  it('ano: doze fins de mês, o último é hoje', () => {
+    const s = balanceSeries(accounts, txs, '2026-10', 'year', '2026-10-06')
+    expect(s).toHaveLength(12)
+    expect(s[10]).toEqual({ date: '2026-09-30', value: 900 })
+    expect(s[11]).toEqual({ date: '2026-10-06', value: 1200 })
+    expect(s[0]!.value).toBe(1000)
   })
 })

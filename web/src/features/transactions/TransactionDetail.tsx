@@ -62,8 +62,8 @@ function DetailSheet() {
   return (
     <div className="fixed inset-0 z-20">
       <button aria-label="Fechar detalhes" onClick={close} className="absolute inset-0 bg-ink/50" />
-      <section role="dialog" aria-modal="true" aria-labelledby="det-t" className="absolute inset-x-0 bottom-0 mx-auto flex max-w-md flex-col gap-5 rounded-t-[28px] bg-surface px-5 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2.5">
-        <div aria-hidden="true" className="mx-auto h-[5px] w-10 rounded-full bg-line" />
+      <section role="dialog" aria-modal="true" aria-labelledby="det-t" className="absolute inset-x-0 bottom-0 mx-auto flex max-w-md flex-col gap-5 rounded-t-[28px] bg-surface px-5 pb-[calc(1.75rem+env(safe-area-inset-bottom))] pt-2.5 md:inset-x-auto md:bottom-auto md:left-1/2 md:top-1/2 md:w-full md:max-w-lg md:-translate-x-1/2 md:-translate-y-1/2 md:rounded-[28px]">
+        <div aria-hidden="true" className="mx-auto h-[5px] w-10 rounded-full bg-line md:hidden" />
         {t === null ? (
           <div className="flex flex-col items-center gap-3 py-6 text-center">
             <h2 id="det-t" className="text-lg font-extrabold">Transação não encontrada</h2>
@@ -77,7 +77,7 @@ function DetailSheet() {
 
       {confirming && t && (
         <div className="absolute inset-0 z-10 grid place-items-center bg-ink/55 p-5">
-          <section role="alertdialog" aria-modal="true" aria-labelledby="del-t" aria-describedby="del-d" className="flex w-full max-w-sm flex-col items-center gap-3.5 rounded-[28px] bg-surface px-[22px] pb-[22px] pt-7 shadow-sheet">
+          <section role="alertdialog" aria-modal="true" aria-labelledby="del-t" aria-describedby="del-d" className="flex w-full max-w-sm flex-col items-center gap-3.5 md:max-w-[460px] rounded-[28px] bg-surface px-[22px] pb-[22px] pt-7 shadow-sheet">
             <span aria-hidden="true" className="grid size-[60px] place-items-center rounded-full bg-error-soft text-error">
               <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M3 6h18M8 6V4h8v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6M10 11v6M14 11v6" />

@@ -1,9 +1,12 @@
+import { useSearch } from '@tanstack/react-router'
 import { useMemo, useState, type ReactNode } from 'react'
 import { Link } from '@tanstack/react-router'
 import type { Transaction } from '../../db/types'
 import { formatDay, monthLabel, shiftMonth, today } from '../../lib/dates'
 import { CategoryIcon, tint } from '../../lib/icons'
 import { formatCents } from '../../lib/money'
+import { useBreakpoint } from '../../lib/breakpoint'
+import { TransactionsDesktop } from './TransactionsDesktop'
 import { useLive } from '../../lib/useLive'
 import { FiltersSheet } from './FiltersSheet'
 import { activeCount, applyFilters, defaultFilters, periodLabel, rangeOf, type Filters, type TypeFilter } from './filters'
@@ -19,8 +22,10 @@ const tabs: [TypeFilter, string][] = [
 const signed = (cents: number) => `${cents >= 0 ? '+' : '−'}${formatCents(Math.abs(cents))}`
 
 export function TransactionsPage() {
+  const bp = useBreakpoint()
   const now = today()
-  const [filters, setFilters] = useState<Filters>(() => defaultFilters(now))
+  const initialQ = (useSearch({ strict: false }) as { q?: string }).q
+  const [filters, setFilters] = useState<Filters>(() => ({ ...defaultFilters(now), search: initialQ ?? '' }))
   const [sheet, setSheet] = useState(false)
   const set = (patch: Partial<Filters>) => setFilters((f) => ({ ...f, ...patch }))
 
@@ -39,8 +44,17 @@ export function TransactionsPage() {
   const totals = summarize(visible)
   const groups = groupByDay(visible)
 
+  if (bp === 'desktop') {
+    return (
+      <>
+        <TransactionsDesktop list={list} visible={visible} filters={filters} set={set} filterCount={filterCount} onFilters={() => setSheet(true)} categories={categories ?? []} accounts={accounts ?? []} totals={totals} now={now} />
+        {sheet && <FiltersSheet value={filters} categories={categories ?? []} accounts={accounts ?? []} onApply={(f) => { setFilters(f); setSheet(false) }} onClose={() => setSheet(false)} />}
+      </>
+    )
+  }
+
   return (
-    <main className="flex flex-col pb-24 md:pb-10">
+    <main className="mx-auto flex w-full max-w-3xl flex-col pb-24 md:pb-10">
       <header className="flex items-center justify-between px-4 pb-3 pt-[calc(1.25rem+env(safe-area-inset-top))]">
         <h1 className="text-[26px] font-extrabold tracking-tight">Transações</h1>
         <button

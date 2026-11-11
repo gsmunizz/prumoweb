@@ -8,6 +8,10 @@ import { db } from '../../db'
 import { useSession } from '../../lib/session'
 import { useLive } from '../../lib/useLive'
 import { saveRecord } from '../../sync'
+import { AppShell } from '../../components/AppShell'
+import { Modal } from '../../components/wide'
+import { useBreakpoint } from '../../lib/breakpoint'
+import { TransactionsPage } from './TransactionsPage'
 import { activeAccounts, activeCategories } from './queries'
 import { isInternal } from './summary'
 
@@ -47,6 +51,7 @@ export function EditTransactionPage() {
 // Lançamento rápido (design "03 · Nova transação"): só valor e categoria são obrigatórios;
 // conta e data já vêm preenchidas.
 function TransactionForm({ existing }: { existing?: Transaction }) {
+  const bp = useBreakpoint()
   const session = useSession()
   const navigate = useNavigate()
   const accounts = useLive(activeAccounts, [])
@@ -82,7 +87,7 @@ function TransactionForm({ existing }: { existing?: Transaction }) {
     })
   }
 
-  async function save() {
+  async function save(another = false) {
     if (cents <= 0) return setError('Informe um valor maior que zero.')
     if (!categoryId) return setError('Escolha uma categoria.')
     if (!accountId) return setError('Nenhuma conta disponível. Aguarde a sincronização ou crie uma conta.')
@@ -104,6 +109,13 @@ function TransactionForm({ existing }: { existing?: Transaction }) {
     }
     try {
       await saveRecord('transactions', record)
+      if (another) {
+        setDigits('')
+        setDescription('')
+        setNotes(null)
+        setSaving(false)
+        return
+      }
       await navigate(existing ? { to: '/transacoes/$id', params: { id: existing.id } } : { to: '/transacoes' })
     } catch {
       setError('Não foi possível salvar neste aparelho. Tente de novo.')
@@ -112,6 +124,130 @@ function TransactionForm({ existing }: { existing?: Transaction }) {
   }
 
   const amountColor = cents === 0 ? 'text-ink-3' : expense ? 'text-expense' : 'text-income'
+  const close = () => void navigate(existing ? { to: '/transacoes/$id', params: { id: existing.id } } : { to: '/transacoes' })
+
+  if (bp !== 'mobile') {
+    const field = 'h-12 rounded-[14px] border border-line bg-surface px-3.5 text-[15px] outline-none placeholder:text-ink-3 focus-visible:border-cobalt focus-visible:ring-2 focus-visible:ring-cobalt/30'
+    const title = existing ? 'Editar transação' : 'Nova transação'
+    return (
+      <AppShell>
+        <TransactionsPage />
+        <Modal label={title} onClose={close} width={bp === 'desktop' ? 760 : 640}>
+          <div className="flex items-center justify-between px-7 pb-2 pt-6">
+            <h1 className="text-xl font-extrabold">{title}</h1>
+            <button onClick={close} aria-label="Fechar" className="grid size-11 place-items-center rounded-xl">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true">
+                <path d="M18 6 6 18M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              void save()
+            }}
+            className={`grid gap-6 px-7 pb-7 pt-2 ${bp === 'desktop' ? 'grid-cols-2' : ''}`}
+          >
+            <div className="flex flex-col gap-4">
+              <div role="radiogroup" aria-label="Tipo" className="grid grid-cols-2 gap-1 rounded-field bg-bg p-1">
+                {(['expense', 'income'] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    role="radio"
+                    aria-checked={type === t}
+                    onClick={() => {
+                      setType(t)
+                      setCategoryId(null)
+                    }}
+                    className={`h-10 rounded-[10px] text-sm font-extrabold ${type === t ? `bg-surface shadow-card ${t === 'expense' ? 'text-expense' : 'text-income'}` : 'text-ink-2'}`}
+                  >
+                    {t === 'expense' ? 'Despesa' : 'Receita'}
+                  </button>
+                ))}
+              </div>
+              <label className="flex flex-col gap-1.5 text-[13px] font-extrabold">
+                Valor
+                <input
+                  inputMode="numeric"
+                  value={formatCents(cents)}
+                  onChange={(e) => {
+                    setError(null)
+                    setDigits(e.target.value.replace(/\D/g, '').replace(/^0+/, '').slice(0, MAX_DIGITS))
+                  }}
+                  className={`h-16 rounded-[14px] border border-line bg-surface px-4 text-[32px] font-extrabold outline-none focus-visible:border-cobalt focus-visible:ring-2 focus-visible:ring-cobalt/30 ${amountColor}`}
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-[13px] font-extrabold">
+                Descrição
+                <input value={description} onChange={(e) => setDescription(e.target.value)} maxLength={120} placeholder="Descrição (opcional)" className={field} />
+              </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="flex flex-col gap-1.5 text-[13px] font-extrabold">
+                  Data
+                  <input type="date" value={date} onChange={(e) => e.target.value && setDate(e.target.value)} className={`${field} text-sm font-bold`} />
+                </label>
+                <label className="flex flex-col gap-1.5 text-[13px] font-extrabold">
+                  Conta
+                  <select value={accountId ?? ''} onChange={(e) => setAccountId(e.target.value)} className={`${field} text-sm font-bold`}>
+                    {(accounts ?? []).map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div className="flex flex-col gap-4">
+              <div role="radiogroup" aria-label="Categoria" className="flex flex-col gap-2">
+                <span className="text-[13px] font-extrabold">Categoria</span>
+                <div className="grid grid-cols-4 gap-2">
+                  {categories.map((c) => {
+                    const on = c.id === categoryId
+                    return (
+                      <button key={c.id} type="button" role="radio" aria-checked={on} onClick={() => (setCategoryId(c.id), setError(null))} className={`flex flex-col items-center gap-1.5 rounded-2xl border p-2 ${on ? 'border-cobalt bg-cobalt-soft/40' : 'border-line'}`}>
+                        <span className="grid size-10 place-items-center rounded-xl" style={tint(c.color)}>
+                          <CategoryIcon name={c.icon} size={20} />
+                        </span>
+                        <span className={`max-w-full truncate text-[11px] ${on ? 'font-extrabold' : 'font-semibold'}`}>{c.name}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+                {allCategories !== undefined && categories.length === 0 && <p className="text-sm text-ink-3">Nenhuma categoria ainda. Aguarde a sincronização.</p>}
+              </div>
+              <label className="flex flex-col gap-1.5 text-[13px] font-extrabold">
+                Observação
+                <textarea value={notes ?? ''} onChange={(e) => setNotes(e.target.value)} maxLength={500} rows={2} placeholder="Opcional" className="rounded-[14px] border border-line bg-surface px-3.5 py-3 text-[15px] font-medium outline-none placeholder:text-ink-3 focus-visible:border-cobalt focus-visible:ring-2 focus-visible:ring-cobalt/30" />
+              </label>
+            </div>
+            <div className={`flex flex-col gap-3 ${bp === 'desktop' ? 'col-span-2' : ''}`}>
+              {error && (
+                <p role="alert" className="rounded-field bg-error-soft px-3.5 py-2.5 text-sm font-semibold text-error">
+                  {error}
+                </p>
+              )}
+              <div className="flex flex-wrap justify-end gap-2.5">
+                <button type="button" onClick={close} className="h-[52px] rounded-[14px] border border-line bg-surface px-5 text-[15px] font-extrabold">
+                  Cancelar
+                </button>
+                {!existing && (
+                  <button type="button" disabled={saving} onClick={() => void save(true)} className="h-[52px] rounded-[14px] border border-line bg-surface px-5 text-[15px] font-extrabold disabled:opacity-60">
+                    Salvar e adicionar outra
+                  </button>
+                )}
+                <button type="submit" disabled={saving} className={`h-[52px] rounded-[14px] px-6 text-[15px] font-extrabold text-white disabled:opacity-60 ${expense ? 'bg-cobalt' : 'bg-income'}`}>
+                  {existing ? 'Salvar alterações' : `Salvar ${expense ? 'despesa' : 'receita'}`}
+                </button>
+              </div>
+            </div>
+          </form>
+        </Modal>
+      </AppShell>
+    )
+  }
+
 
   return (
     <div className="mx-auto flex min-h-dvh max-w-md flex-col bg-surface">

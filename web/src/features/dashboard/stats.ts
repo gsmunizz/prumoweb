@@ -85,3 +85,67 @@ export function lastMonths(txs: Transaction[], month: string, count = 6): MonthP
     return { month: m, ...monthStats(txs, m) }
   })
 }
+
+export type SeriesRange = 'week' | 'month' | 'year'
+
+export interface BalancePoint {
+  date: ISODate
+  value: number
+}
+
+const pad2 = (n: number) => String(n).padStart(2, '0')
+const isoOf = (d: Date): ISODate => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+
+function parseDate(date: ISODate): Date {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number]
+  return new Date(y, m - 1, d)
+}
+
+function lastDayOf(month: string): ISODate {
+  const [y, m] = month.split('-').map(Number) as [number, number]
+  return `${month}-${pad2(new Date(y, m, 0).getDate())}`
+}
+
+// Evolução do saldo das contas ativas (gráfico do Início no tablet e no desktop): um ponto por dia na
+// semana e no mês e um por fim de mês no ano. Termina em hoje quando o mês escolhido é o corrente.
+export function balanceSeries(accounts: Account[], txs: Transaction[], month: string, range: SeriesRange, now: ISODate): BalancePoint[] {
+  const ids = new Set(accounts.filter((a) => !a.archived).map((a) => a.id))
+  let base = 0
+  for (const a of accounts) if (ids.has(a.id)) base += a.initial_balance_cents
+
+  const byDate = new Map<ISODate, number>()
+  for (const t of txs) if (ids.has(t.account_id)) byDate.set(t.date, (byDate.get(t.date) ?? 0) + signedCents(t))
+  const dates = [...byDate.keys()].sort()
+  const prefix: number[] = []
+  let run = base
+  for (const d of dates) {
+    run += byDate.get(d)!
+    prefix.push(run)
+  }
+  const valueAt = (date: ISODate): number => {
+    let lo = 0
+    let hi = dates.length - 1
+    let found = -1
+    while (lo <= hi) {
+      const mid = (lo + hi) >> 1
+      if (dates[mid]! <= date) {
+        found = mid
+        lo = mid + 1
+      } else hi = mid - 1
+    }
+    return found < 0 ? base : prefix[found]!
+  }
+
+  const end = lastDayOf(month)
+  const until = now < end ? now : end
+  const days = (count: number): ISODate[] => {
+    const last = parseDate(until)
+    return Array.from({ length: count }, (_, i) => isoOf(new Date(last.getFullYear(), last.getMonth(), last.getDate() - (count - 1 - i))))
+  }
+
+  let dateList: ISODate[]
+  if (range === 'week') dateList = days(7)
+  else if (range === 'month') dateList = days(Number(until.slice(8)))
+  else dateList = Array.from({ length: 12 }, (_, i) => (i === 11 ? until : lastDayOf(shiftMonth(month, i - 11))))
+  return dateList.map((date) => ({ date, value: valueAt(date) }))
+}

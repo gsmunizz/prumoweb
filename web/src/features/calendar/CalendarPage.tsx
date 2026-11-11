@@ -56,7 +56,7 @@ export function CalendarPage() {
   }
 
   return (
-    <main className="flex flex-col pb-28 md:pb-10">
+    <main className="mx-auto flex w-full max-w-3xl flex-col pb-28 md:pb-10">
       <header className="flex items-center justify-between px-4 pb-3 pt-[calc(1.25rem+env(safe-area-inset-top))]">
         <h1 className="text-[26px] font-extrabold tracking-tight">Calendário</h1>
         <div className="flex items-center gap-0.5">
